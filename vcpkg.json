@@ -1,0 +1,9 @@
+{
+    "name": "cppglue",
+    "version": "0.1.0",
+    "description": "cpp to language glue",
+    "homepage": "https://github.com/jkammerland/cppglue",
+    "license": "MIT",
+    "dependencies": []
+    
+}

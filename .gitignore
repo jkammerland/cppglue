@@ -1,5 +1,17 @@
+.idea/*
+.vscode/*
+libs/*
+bin/*
+build/*
+.cache/*
+cmake-build-*/
+scratch/*
+python-bindings/testenv/*
+tests/tmp/*
+
 # Prerequisites
 *.d
+
 
 # Compiled Object files
 *.slo
