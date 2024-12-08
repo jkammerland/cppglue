@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+# Add any public dependencies
+@PY-GEN_PUBLIC_DEPENDENCIES@
+
+include("${CMAKE_CURRENT_LIST_DIR}/PY-GEN-targets.cmake")
+check_required_components(PY-GEN)
