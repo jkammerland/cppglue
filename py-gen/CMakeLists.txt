@@ -33,7 +33,10 @@ add_definitions(${LLVM_DEFINITIONS})
 
 # Add executable
 add_executable(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE binding_generator.cpp)
+
+# Glob all source files
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Platform-specific configuration
