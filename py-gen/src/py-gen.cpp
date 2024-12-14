@@ -64,8 +64,9 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
 
     // Then, define the actual bindings for non-enum classes
     for (const auto &structInfo : structs) {
-        if (structInfo.isEnum)
-            continue;
+        if (structInfo.isEnum) {
+            continue; // Already handled
+        }
 
         std::string className = structInfo.name.plain + "_class";
         std::string fullName  = getFullName(structInfo);
@@ -91,8 +92,9 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
 
     // Generate free function bindings
     for (const auto &funcInfo : functions) {
-        if (funcInfo.isMemberFunction)
-            continue;
+        if (funcInfo.isMemberFunction) {
+            continue; // Already handled
+        }
 
         out << fmt::format("    m.def(\"{0}\", &{1});\n", funcInfo.name.plain,
                            funcInfo.name.qualified.empty() ? funcInfo.name.plain : funcInfo.name.qualified);

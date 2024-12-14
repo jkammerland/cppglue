@@ -1,19 +1,24 @@
 #include "py-gen.h"
 
+#include <clang/Tooling/CompilationDatabase.h>
 #include <cxxopts.hpp>
 #include <exception>
+#include <filesystem>
 #include <fmt/format.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <toml++/toml.h>
 #include <vector>
 
 struct ProgramOptions {
     std::string              moduleName;
     size_t                   nSourceFiles;
     std::string              outputDir = ".";
-    std::string              configFile;
+    std::filesystem::path    configFile;
     std::vector<std::string> clangArgs;
 };
 
@@ -57,22 +62,26 @@ bool parse2Options(int argc, const char **argv, ProgramOptions &programOptions) 
 
         if (result.count("help")) {
             llvm::outs() << options.help() << "\n";
-            exit(0);
+            return false;
         }
 
         if (!result.count("module")) {
             llvm::errs() << "Missing module name\n";
-            exit(1);
+            return false;
         }
 
         if (!result.count("sources")) {
             llvm::errs() << "Missing source files\n";
-            exit(1);
+            return false;
         }
 
         if (result.count("config")) {
             programOptions.configFile = result["config"].as<std::string>();
-            llvm::outs() << "Config file: " << programOptions.configFile << " unsupported parsing\n";
+            if (!std::filesystem::exists(programOptions.configFile)) {
+                llvm::errs() << "Config file does not exist: <" << programOptions.configFile << "> relative to working dir: <"
+                             << std::filesystem::current_path() << ">\n";
+                return false;
+            }
         }
 
         programOptions.moduleName   = result["module"].as<std::string>();
@@ -99,10 +108,56 @@ bool parse2Options(int argc, const char **argv, ProgramOptions &programOptions) 
     }
 }
 
+auto parseToml(const std::filesystem::path &configFile) {
+    std::optional<toml::table> config = std::nullopt;
+    if (!std::filesystem::exists(configFile)) {
+        llvm::errs() << "Config file does not exist: <" << configFile << ">\n";
+        return config;
+    }
+
+    try {
+        config = toml::parse_file(configFile.c_str());
+    } catch (const toml::parse_error &e) {
+        llvm::errs() << "toml parse error: " << e.what() << "\n";
+        config = std::nullopt;
+    }
+
+    return config;
+}
+
 int main(int argc, const char **argv) {
+    // Parse command line options
     ProgramOptions options;
     if (not parse2Options(argc, argv, options)) {
         return 1;
+    }
+
+    // Parse config file
+    auto config = parseToml(options.configFile);
+
+    if (config) {
+        auto &table = *config;
+        if (table.contains("compile_commands")) {
+            auto path = table["compile_commands"]["path"].value<std::string_view>();
+            if (!std::filesystem::exists(*path)) {
+                llvm::errs() << "compile_commands.json file does not exist: <" << path << ">\n";
+                return 1;
+            }
+            llvm::outs() << "Using compile_commands.json: " << path << "\n";
+
+            auto absolutePath = std::filesystem::absolute(*path);
+
+            // Remove file name from path
+            auto parentPath = absolutePath.parent_path();
+            llvm::outs() << "Parent path: " << parentPath << "\n";
+
+            // std::string error;
+            // auto        database = clang::tooling::CompilationDatabase::loadFromDirectory(parentPath.c_str(), error);
+            // if (!error.empty()) {
+            //     llvm::errs() << "Error loading compilation database: " << error << "\n";
+            //     return 1;
+            // }
+        }
     }
 
     // Prepare clang tool
