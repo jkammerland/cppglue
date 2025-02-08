@@ -5,6 +5,7 @@
 #include <exception>
 #include <filesystem>
 #include <fmt/format.h>
+#include <iostream>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/raw_ostream.h>
 #include <memory>
@@ -19,7 +20,9 @@ struct ProgramOptions {
     size_t                   nSourceFiles;
     std::string              outputDir = ".";
     std::filesystem::path    configFile;
+    std::filesystem::path    compileCommandsFile;
     std::vector<std::string> clangArgs;
+    std::vector<std::string> finalArgs;
 };
 
 /**
@@ -42,17 +45,17 @@ struct ProgramOptions {
  * @return A ProgramOptions structure populated with the parsed values.
  *
  * Example usage:
- * @code
+ * @code#include <toml++/impl/formatter.hpp>
+
  * ./py-gen --module MyModule --sources file1.cpp file2.cpp --output ./bindings -- -std=c++11 -I/usr/include
  * @endcode
  */
-bool parse2Options(int argc, const char **argv, ProgramOptions &programOptions) {
+bool processCLIargsIntoProgramOptions(int argc, const char **argv, ProgramOptions &programOptions) {
     cxxopts::Options options("py-gen", "Python binding generator for C++");
 
-    options.add_options()("m,module", "Python module name", cxxopts::value<std::string>());
-    options.add_options()("s,sources", "Source files", cxxopts::value<std::vector<std::string>>());
-    options.add_options()("o,output", "Output directory", cxxopts::value<std::string>()->default_value("."));
     options.add_options()("c,config", "Config file", cxxopts::value<std::string>());
+    options.add_options()("h,help",
+                          "Use -c <file> to specify a .toml config file, containing sources, compile_args, module_name, output_dir");
 
     // Allow unmatched arguments to be passed through to clang
     options.allow_unrecognised_options();
@@ -65,16 +68,6 @@ bool parse2Options(int argc, const char **argv, ProgramOptions &programOptions) 
             return false;
         }
 
-        if (!result.count("module")) {
-            llvm::errs() << "Missing module name\n";
-            return false;
-        }
-
-        if (!result.count("sources")) {
-            llvm::errs() << "Missing source files\n";
-            return false;
-        }
-
         if (result.count("config")) {
             programOptions.configFile = result["config"].as<std::string>();
             if (!std::filesystem::exists(programOptions.configFile)) {
@@ -83,24 +76,6 @@ bool parse2Options(int argc, const char **argv, ProgramOptions &programOptions) 
                 return false;
             }
         }
-
-        programOptions.moduleName   = result["module"].as<std::string>();
-        programOptions.clangArgs    = result["sources"].as<std::vector<std::string>>();
-        programOptions.nSourceFiles = programOptions.clangArgs.size();
-        programOptions.outputDir    = result["output"].as<std::string>();
-
-        // List all unmatched arguments
-        if (!result.unmatched().empty()) {
-            llvm::outs() << "Taking as clang tool arguments (+ source provided files, but not listed here):\n";
-            programOptions.clangArgs.reserve(programOptions.clangArgs.size() + result.unmatched().size());
-
-            // Add back "--" separator if we have compiler args, this is lost in cxxopts otherwise
-            programOptions.clangArgs.emplace_back("--");
-        }
-        for (auto &arg : result.unmatched()) {
-            llvm::outs() << "   " << arg << "\n";
-            programOptions.clangArgs.emplace_back(std::move(arg));
-        }
         return true;
     } catch (const std::exception &e) {
         llvm::errs() << "Error parsing options: " << e.what() << "\n";
@@ -108,7 +83,9 @@ bool parse2Options(int argc, const char **argv, ProgramOptions &programOptions) 
     }
 }
 
-auto parseToml(const std::filesystem::path &configFile) {
+std::optional<toml::table> parseToml(const std::filesystem::path &configFile, ProgramOptions &options) {
+    llvm::outs() << "Parsing config file: " << configFile.filename().c_str() << "\n";
+
     std::optional<toml::table> config = std::nullopt;
     if (!std::filesystem::exists(configFile)) {
         llvm::errs() << "Config file does not exist: <" << configFile << ">\n";
@@ -117,6 +94,47 @@ auto parseToml(const std::filesystem::path &configFile) {
 
     try {
         config = toml::parse_file(configFile.c_str());
+
+        auto &table = *config;
+        if (table.contains("compile_commands")) {
+            auto path = table["compile_commands"]["path"].value<std::string_view>();
+            if (!std::filesystem::exists(*path)) {
+                llvm::errs() << "compile_commands.json file does not exist: <" << path << ">\n";
+                return std::nullopt;
+            }
+            llvm::outs() << "Using compile_commands.json: " << path << "\n";
+            options.compileCommandsFile = *path;
+        }
+
+        if (table.contains("sources")) {
+            auto sources = table["sources"].as_array();
+            llvm::outs() << "sources:\n";
+            for (const auto &source : *sources) {
+                if (auto str = source.as_string()) {
+                    std::cout << "  " << *str << "\n";
+                    options.clangArgs.emplace_back(*str);
+                }
+            }
+        }
+
+        if (table.contains("compile_args")) {
+            // Seperate clang args from source files
+            options.clangArgs.emplace_back("--");
+
+            auto commands = table["compile_args"].as_array();
+            llvm::outs() << "compile_args:\n";
+            for (const auto &cmd : *commands) {
+                if (auto str = cmd.as_string()) {
+                    std::cout << "  " << *str << "\n";
+                    options.clangArgs.emplace_back(*str);
+                }
+            }
+        }
+
+        options.moduleName = table["module_name"].value_or(std::string(""));
+        llvm::outs() << "Module name: " << options.moduleName << "\n";
+        options.outputDir = table["output_dir"].value_or(std::string("."));
+        llvm::outs() << "Output directory: " << options.outputDir << "\n";
     } catch (const toml::parse_error &e) {
         llvm::errs() << "toml parse error: " << e.what() << "\n";
         config = std::nullopt;
@@ -128,35 +146,44 @@ auto parseToml(const std::filesystem::path &configFile) {
 int main(int argc, const char **argv) {
     // Parse command line options
     ProgramOptions options;
-    if (not parse2Options(argc, argv, options)) {
+    if (not processCLIargsIntoProgramOptions(argc, argv, options)) {
+        llvm::errs() << "Error parsing command line options\n";
         return 1;
     }
 
     // Parse config file
-    auto config = parseToml(options.configFile);
+    auto config = parseToml(options.configFile, options);
 
+    std::unique_ptr<clang::tooling::CompilationDatabase> database;
     if (config) {
-        auto &table = *config;
-        if (table.contains("compile_commands")) {
-            auto path = table["compile_commands"]["path"].value<std::string_view>();
-            if (!std::filesystem::exists(*path)) {
+        // Print out the config file contents
+        if (!options.compileCommandsFile.empty()) {
+            auto path = options.compileCommandsFile;
+            if (!std::filesystem::exists(path)) {
                 llvm::errs() << "compile_commands.json file does not exist: <" << path << ">\n";
                 return 1;
             }
             llvm::outs() << "Using compile_commands.json: " << path << "\n";
 
-            auto absolutePath = std::filesystem::absolute(*path);
+            auto absolutePath = std::filesystem::absolute(path);
 
             // Remove file name from path
             auto parentPath = absolutePath.parent_path();
             llvm::outs() << "Parent path: " << parentPath << "\n";
 
-            // std::string error;
-            // auto        database = clang::tooling::CompilationDatabase::loadFromDirectory(parentPath.c_str(), error);
-            // if (!error.empty()) {
-            //     llvm::errs() << "Error loading compilation database: " << error << "\n";
-            //     return 1;
-            // }
+            std::string error;
+            database = clang::tooling::CompilationDatabase::loadFromDirectory(parentPath.c_str(), error);
+            if (!database) {
+                llvm::errs() << "Error loading compilation database: " << error << "\n";
+                return 1;
+            }
+            auto commands = database->getAllCompileCommands();
+            for (const auto &command : commands) {
+                llvm::outs() << "File: " << command.Filename << "\n";
+                for (const auto &arg : command.CommandLine) {
+                    llvm::outs() << "    " << arg << "\n";
+                }
+            }
         }
     }
 
@@ -173,6 +200,16 @@ int main(int argc, const char **argv) {
     if (!expectedParser) {
         llvm::errs() << "Error parsing command line arguments: " << expectedParser.takeError() << "\n";
         return 1;
+    } else {
+        llvm::outs() << "Parsed arguments: \n";
+        for (const auto &arg : clangArgv) {
+            llvm::outs() << "    " << arg << "\n";
+        }
+    }
+
+    if (database) {
+        throw std::runtime_error("Not implemented");
+        expectedParser->getCompilations() = *database;
     }
 
     clang::tooling::ClangTool tool(expectedParser->getCompilations(), expectedParser->getSourcePathList());

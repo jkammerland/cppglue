@@ -17,7 +17,6 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     for (const auto &header : headers) {
         if (!header.isSystem) {
             userHeaders.insert(header.name);
-
         } else {
             systemHeaders.insert(header.name);
         }

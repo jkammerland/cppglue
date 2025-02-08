@@ -8,6 +8,7 @@ cmake-build-*/
 scratch/*
 python-bindings/testenv/*
 tests/tmp/*
+build*
 
 # Prerequisites
 *.d
