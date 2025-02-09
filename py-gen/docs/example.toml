@@ -1,0 +1,23 @@
+[source]
+files = ["src/main.cpp", "src/utils.cpp", "include/utils.h"]
+
+[python]
+module_name = "my_python_module"
+
+[compile]
+commands = [
+    "-xc++",
+    "-std=c++17",
+    "-I/usr/lib/gcc/x86_64-redhat-linux/14/include",
+    "-I/usr/include/c++/14",
+    "-I/usr/include/c++/14/x86_64-redhat-linux",
+    "-I/usr/include/c++/14/backward",
+    "-I/usr/local/include",
+    "-I/usr/include"
+]
+
+[compile_commands]
+path = "/path/to/compile_commands.json"
+
+[output]
+directory = "build"

@@ -1,0 +1,13 @@
+sources = ["struct_example_impl.cpp"]
+module_name = "my_python_module"
+compile_args = [
+    "-xc++",
+    "-std=c++17",
+    "-I/usr/lib/gcc/x86_64-redhat-linux/14/include",
+    "-I/usr/include/c++/14",
+    "-I/usr/include/c++/14/x86_64-redhat-linux",
+    "-I/usr/include/c++/14/backward",
+    "-I/usr/local/include",
+    "-I/usr/include"
+]
+output_dir = "bindings"

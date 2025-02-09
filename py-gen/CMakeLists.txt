@@ -11,8 +11,10 @@ include(get_cpm)
 set(CPM_SOURCE_CACHE_OLD ${CPM_SOURCE_CACHE})
 
 set(CPM_SOURCE_CACHE ${CMAKE_BINARY_DIR}/${PROJECT_NAME}/cpm_cache)
-cpmaddpackage("gh:fmtlib/fmt#11.0.2")
+cpmaddpackage("gh:fmtlib/fmt#11.1.2")
 cpmaddpackage("gh:jarro2783/cxxopts@3.2.0")
+cpmaddpackage("gh:marzer/tomlplusplus@3.4.0")
+find_package(tomlplusplus REQUIRED)
 
 # Restore old source cache
 set(CPM_SOURCE_CACHE ${CPM_SOURCE_CACHE_OLD})
@@ -54,13 +56,13 @@ else()
 endif()
 
 # Link libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt ${CLANG_LIBS} $<$<NOT:$<PLATFORM_ID:Windows>>:tinfo> cppglue cxxopts)
+target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt ${CLANG_LIBS} $<$<NOT:$<PLATFORM_ID:Windows>>:tinfo> cppglue cxxopts tomlplusplus::tomlplusplus)
 # List all private dependencies of project_name
-message(STATUS "${PROJECT_NAME} private dependencies: cppglue cxxopts ${CLANG_LIBS} $<$<NOT:$<PLATFORM_ID:Windows>>:tinfo>")
+message(STATUS "${PROJECT_NAME} private dependencies: cppglue cxxopts tomlplusplus ${CLANG_LIBS} $<$<NOT:$<PLATFORM_ID:Windows>>:tinfo>")
 
 # Add the install target
 include(installation_target)
 install_target(${PROJECT_NAME})
 set(CPPGLUE_PUBLIC_DEPENDENCIES "find_dependency(fmt) find_dependency(cppglue) find_dependency(cxxopts)")
 
-# add_subdirectory(tests)
+add_subdirectory(tests)

@@ -41,9 +41,7 @@ class DeclarationExtractorAction : public clang::ASTFrontendAction {
 
         if (fileName.ends_with(".h") || fileName.ends_with(".hpp") || fileName.ends_with(".hxx")) {
             llvm::outs() << "Adding header file: " << fileName << " to list of possible dependencies\n";
-            hcb_({{fileName.str(), file.str(), false, true}});
-        } else {
-            llvm::outs() << "Skipping file: " << fileName << " as it is not a header file\n";
+            hcb_({{.name = fileName.str(), .fullPath = file.str(), .isSystem = false, .isInputFile = true}});
         }
 
         consumer_ = new ASTConsumer(&compiler.getASTContext(), cb_);
