@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.15)
+project({module_name}_bindings)
+
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 CONFIG REQUIRED)
+
+add_library({module_name} MODULE
+    {module_name}.cpp
+)
+
+target_link_libraries({module_name} PRIVATE
+    pybind11::module
+    Python::Python
+)
+
+set_target_properties({module_name} PROPERTIES
+    PREFIX ""
+    SUFFIX "${PYTHON_MODULE_EXTENSION}"
+)
+
+if(MSVC)
+    target_compile_options({module_name} PRIVATE /bigobj)
+endif()

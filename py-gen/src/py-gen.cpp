@@ -105,10 +105,64 @@ void generateBindings(const Structs &structs,
     out << "}\n";
 }
 
+namespace {
+std::string readTemplate(const std::string& templateName) {
+    // Template file is installed alongside the executable
+    std::filesystem::path exePath = std::filesystem::canonical("/proc/self/exe");
+    auto templatePath = exePath.parent_path() / "templates" / templateName;
+    
+    std::ifstream file(templatePath);
+    if (!file) {
+        throw std::runtime_error("Failed to open template file: " + templatePath.string());
+    }
+    
+    return std::string(std::istreambuf_iterator<char>(file),
+                      std::istreambuf_iterator<char>());
+}
+
+void createDirectory(const std::filesystem::path& path) {
+    if (!std::filesystem::exists(path)) {
+        if (!std::filesystem::create_directories(path)) {
+            throw std::runtime_error("Failed to create directory: " + path.string());
+        }
+        std::cout << "Created directory: " << path << '\n';
+    }
+}
+
+std::string generateCMakeLists(const std::string& moduleName) {
+    std::string templ = readTemplate("CMakeLists.txt.template");
+    // Replace placeholders
+    size_t pos;
+    while ((pos = templ.find("{module_name}")) != std::string::npos) {
+        templ.replace(pos, 12, moduleName);
+    }
+    return templ;
+}
+}  // namespace
+
 void generateBindings(const Structs &structs,
                      const Functions &functions,
                      const Headers &headers,
                      const std::string &moduleName) {
-    std::ofstream out(moduleName + ".cpp");
+    // Create output directory if it doesn't exist
+    std::filesystem::path outputDir = moduleName + "_bindings";
+    createDirectory(outputDir);
+    
+    // Generate the bindings file
+    auto bindingsPath = outputDir / (moduleName + ".cpp");
+    std::ofstream out(bindingsPath);
+    if (!out) {
+        throw std::runtime_error("Failed to open output file: " + bindingsPath.string());
+    }
     generateBindings(structs, functions, headers, moduleName, out);
+    
+    // Generate CMakeLists.txt
+    auto cmakePath = outputDir / "CMakeLists.txt";
+    std::ofstream cmake(cmakePath);
+    if (!cmake) {
+        throw std::runtime_error("Failed to create CMakeLists.txt: " + cmakePath.string());
+    }
+    cmake << generateCMakeLists(moduleName);
+    
+    std::cout << "Generated files in: " << outputDir << '\n';
 }
