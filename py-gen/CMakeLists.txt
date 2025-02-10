@@ -66,3 +66,15 @@ install_target(${PROJECT_NAME})
 set(CPPGLUE_PUBLIC_DEPENDENCIES "find_dependency(fmt) find_dependency(cppglue) find_dependency(cxxopts)")
 
 add_subdirectory(tests)
+
+# Copy templates to build directory for development/testing
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/templates
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates)
+
+# Install templates alongside executable
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/templates/
+        DESTINATION ${CMAKE_INSTALL_BINDIR}/templates
+        FILES_MATCHING PATTERN "*.template")
