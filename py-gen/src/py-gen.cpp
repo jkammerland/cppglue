@@ -1,12 +1,10 @@
 #include "py-gen.h"
 
 #include <fstream>
+#include <iostream>
 
-void generateBindings(const Structs &structs, 
-                     const Functions &functions, 
-                     const Headers &headers, 
-                     const std::string &moduleName,
-                     std::ostream &out) {
+void generateBindings(const Structs &structs, const Functions &functions, const Headers &headers, const std::string &moduleName,
+                      std::ostream &out) {
 
     // Write headers - TODO: be smart here, only include what is needed
     out << "#include <pybind11/pybind11.h>\n"
@@ -106,21 +104,20 @@ void generateBindings(const Structs &structs,
 }
 
 namespace {
-std::string readTemplate(const std::string& templateName) {
+std::string readTemplate(const std::string &templateName) {
     // Template file is installed alongside the executable
-    std::filesystem::path exePath = std::filesystem::canonical("/proc/self/exe");
-    auto templatePath = exePath.parent_path() / "templates" / templateName;
-    
+    std::filesystem::path exePath      = std::filesystem::canonical("/proc/self/exe");
+    auto                  templatePath = exePath.parent_path() / "templates" / templateName;
+
     std::ifstream file(templatePath);
     if (!file) {
         throw std::runtime_error("Failed to open template file: " + templatePath.string());
     }
-    
-    return std::string(std::istreambuf_iterator<char>(file),
-                      std::istreambuf_iterator<char>());
+
+    return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 }
 
-void createDirectory(const std::filesystem::path& path) {
+void createDirectory(const std::filesystem::path &path) {
     if (!std::filesystem::exists(path)) {
         if (!std::filesystem::create_directories(path)) {
             throw std::runtime_error("Failed to create directory: " + path.string());
@@ -129,41 +126,38 @@ void createDirectory(const std::filesystem::path& path) {
     }
 }
 
-std::string generateCMakeLists(const std::string& moduleName) {
+std::string generateCMakeLists(const std::string &moduleName) {
     std::string templ = readTemplate("CMakeLists.txt.template");
     // Replace placeholders
-    size_t pos;
+    size_t            pos;
     const std::string placeholder = "{module_name}";
     while ((pos = templ.find(placeholder)) != std::string::npos) {
         templ.replace(pos, placeholder.length(), moduleName);
     }
     return templ;
 }
-}  // namespace
+} // namespace
 
-void generateBindings(const Structs &structs,
-                     const Functions &functions,
-                     const Headers &headers,
-                     const std::string &moduleName) {
+void generateBindings(const Structs &structs, const Functions &functions, const Headers &headers, const std::string &moduleName,
+                      const std::filesystem::path &outputDir) {
     // Create output directory if it doesn't exist
-    std::filesystem::path outputDir = moduleName + "_bindings";
     createDirectory(outputDir);
-    
+
     // Generate the bindings file
-    auto bindingsPath = outputDir / (moduleName + ".cpp");
+    auto          bindingsPath = outputDir / (moduleName + ".cpp");
     std::ofstream out(bindingsPath);
     if (!out) {
         throw std::runtime_error("Failed to open output file: " + bindingsPath.string());
     }
     generateBindings(structs, functions, headers, moduleName, out);
-    
+
     // Generate CMakeLists.txt
-    auto cmakePath = outputDir / "CMakeLists.txt";
+    auto          cmakePath = outputDir / "CMakeLists.txt";
     std::ofstream cmake(cmakePath);
     if (!cmake) {
         throw std::runtime_error("Failed to create CMakeLists.txt: " + cmakePath.string());
     }
     cmake << generateCMakeLists(moduleName);
-    
+
     std::cout << "Generated files in: " << outputDir << '\n';
 }

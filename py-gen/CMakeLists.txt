@@ -78,3 +78,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/templates/
         DESTINATION ${CMAKE_INSTALL_BINDIR}/templates
         FILES_MATCHING PATTERN "*.template")
+
+# Copy templates POST_BUILD for development/testing
+message(STATUS "Copying templates to build directory")
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/src/templates $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates)

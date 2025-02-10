@@ -258,7 +258,7 @@ int main(int argc, const char **argv) {
         }
     }
 
-    generateBindings(structs, functions, headers, options.moduleName);
+    generateBindings(structs, functions, headers, options.moduleName, options.outputDir);
 
     return 0;
 }
