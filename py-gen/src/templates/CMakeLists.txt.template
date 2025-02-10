@@ -1,23 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
 project({module_name}_bindings)
 
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
-find_package(pybind11 CONFIG REQUIRED)
+set(PYBIND11_FINDPYTHON ON)
 
-add_library({module_name} MODULE
-    {module_name}.cpp
-)
+include(CPM.cmake)
+cpmaddpackage("gh:pybind/pybind11@2.13.6")
 
-target_link_libraries({module_name} PRIVATE
-    pybind11::module
-    Python::Python
-)
+pybind11_add_module({module_name} {module_name}.cpp)
 
-set_target_properties({module_name} PROPERTIES
-    PREFIX ""
-    SUFFIX "${PYTHON_MODULE_EXTENSION}"
-)
-
-if(MSVC)
-    target_compile_options({module_name} PRIVATE /bigobj)
-endif()
+target_compile_definitions({module_name} PRIVATE VERSION_INFO=${PROJECT_VERSION})
+install(TARGETS {module_name} DESTINATION ${CMAKE_BINARY_DIR}/python_bindings)
