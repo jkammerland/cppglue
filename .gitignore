@@ -9,6 +9,7 @@ scratch/*
 python-bindings/testenv/*
 tests/tmp/*
 build*
+.aider.*
 
 # Prerequisites
 *.d
