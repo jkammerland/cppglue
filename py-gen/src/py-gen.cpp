@@ -133,8 +133,9 @@ std::string generateCMakeLists(const std::string& moduleName) {
     std::string templ = readTemplate("CMakeLists.txt.template");
     // Replace placeholders
     size_t pos;
-    while ((pos = templ.find("{module_name}")) != std::string::npos) {
-        templ.replace(pos, 12, moduleName);
+    const std::string placeholder = "{module_name}";
+    while ((pos = templ.find(placeholder)) != std::string::npos) {
+        templ.replace(pos, placeholder.length(), moduleName);
     }
     return templ;
 }
