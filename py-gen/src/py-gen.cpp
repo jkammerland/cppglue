@@ -2,8 +2,11 @@
 
 #include <fstream>
 
-void generateBindings(const Structs &structs, const Functions &functions, const Headers &headers, const std::string &moduleName) {
-    std::ofstream out(moduleName + ".cpp");
+void generateBindings(const Structs &structs, 
+                     const Functions &functions, 
+                     const Headers &headers, 
+                     const std::string &moduleName,
+                     std::ostream &out) {
 
     // Write headers - TODO: be smart here, only include what is needed
     out << "#include <pybind11/pybind11.h>\n"
@@ -100,4 +103,12 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     }
 
     out << "}\n";
+}
+
+void generateBindings(const Structs &structs,
+                     const Functions &functions,
+                     const Headers &headers,
+                     const std::string &moduleName) {
+    std::ofstream out(moduleName + ".cpp");
+    generateBindings(structs, functions, headers, moduleName, out);
 }

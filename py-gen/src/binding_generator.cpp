@@ -31,23 +31,22 @@ struct ProgramOptions {
  * This function uses the cxxopts library to parse command line arguments and populate
  * a ProgramOptions structure with the provided values. It supports the following options:
  *
- * - `-m, --module <module>`: Specifies the name of the Python module to generate bindings for.
- * - `-s, --sources <files>`: Specifies the source files to generate bindings from.
- * - `-o, --output <directory>`: Specifies the output directory for the generated bindings (default is current directory).
- * - `-c, --config <file>`: Specifies a configuration file (currently unsupported parsing).
+ * - `-c, --config <file>`: Specifies a TOML configuration file containing:
+ *   - compile_commands: Path to compile_commands.json
+ *   - sources: Array of source files to process
+ *   - compile_args: Array of compiler arguments
+ *   - module_name: Name of the output Python module
+ *   - output_dir: Directory for generated files (default: ".")
  * - `-h, --help`: Prints the usage information and exits.
  *
- * If required options are missing or if there is an error in parsing, the function will print
- * an error message and exit the program.
- *
- * @param argc The number of command line arguments.
- * @param argv The array of command line arguments.
- * @return A ProgramOptions structure populated with the parsed values.
+ * @param argc The number of command line arguments
+ * @param argv The array of command line arguments
+ * @param programOptions Structure to populate with parsed options
+ * @return true if parsing was successful, false otherwise
  *
  * Example usage:
- * @code#include <toml++/impl/formatter.hpp>
-
- * ./py-gen --module MyModule --sources file1.cpp file2.cpp --output ./bindings -- -std=c++11 -I/usr/include
+ * @code
+ * ./py-gen -c config.toml
  * @endcode
  */
 bool processCLIargsIntoProgramOptions(int argc, const char **argv, ProgramOptions &programOptions) {
