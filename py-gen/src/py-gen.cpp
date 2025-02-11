@@ -136,6 +136,17 @@ std::string generateCMakeLists(const std::string &moduleName) {
     }
     return templ;
 }
+
+std::string generateCPM(const std::string &version) {
+    std::string templ = readTemplate("CPM.cmake.template");
+    // Replace placeholders
+    size_t            pos;
+    const std::string placeholder = "{version}";
+    while ((pos = templ.find(placeholder)) != std::string::npos) {
+        templ.replace(pos, placeholder.length(), version);
+    }
+    return templ;
+}
 } // namespace
 
 void generateBindings(const Structs &structs, const Functions &functions, const Headers &headers, const std::string &moduleName,
@@ -158,6 +169,14 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
         throw std::runtime_error("Failed to create CMakeLists.txt: " + cmakePath.string());
     }
     cmake << generateCMakeLists(moduleName);
+
+    // Generate CPM.cmake
+    auto          cpmPath = outputDir / "CPM.cmake";
+    std::ofstream cpm(cpmPath);
+    if (!cpm) {
+        throw std::runtime_error("Failed to create CPM.cmake: " + cpmPath.string());
+    }
+    cpm << generateCPM("0.40.5");
 
     std::cout << "Generated files in: " << outputDir << '\n';
 }
