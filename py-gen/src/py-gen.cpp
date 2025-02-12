@@ -126,14 +126,32 @@ void createDirectory(const std::filesystem::path &path) {
     }
 }
 
-std::string generateCMakeLists(const std::string &moduleName) {
+std::string generateCMakeLists(const std::string &moduleName, const Headers &headers) {
     std::string templ = readTemplate("CMakeLists.txt.template");
+
+    // Generate header fileset section
+    std::stringstream headerFiles;
+    headerFiles << "# Direct header dependencies (that you must resolve!):\n";
+    for (const auto &header : headers) {
+        if (!header.isSystem) {
+            headerFiles << "# " << header.fullPath << "\n";
+        }
+    }
+    headerFiles << "\n";
+
     // Replace placeholders
     size_t            pos;
     const std::string placeholder = "{module_name}";
     while ((pos = templ.find(placeholder)) != std::string::npos) {
         templ.replace(pos, placeholder.length(), moduleName);
     }
+
+    // Insert header files section after the project() line
+    if ((pos = templ.find("project(")) != std::string::npos) {
+        pos = templ.find('\n', pos) + 1;
+        templ.insert(pos, headerFiles.str());
+    }
+
     return templ;
 }
 
@@ -168,7 +186,7 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     if (!cmake) {
         throw std::runtime_error("Failed to create CMakeLists.txt: " + cmakePath.string());
     }
-    cmake << generateCMakeLists(moduleName);
+    cmake << generateCMakeLists(moduleName, headers);
 
     // Generate CPM.cmake
     auto          cpmPath = outputDir / "CPM.cmake";
