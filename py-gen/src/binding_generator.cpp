@@ -17,7 +17,6 @@
 
 struct ProgramOptions {
     std::string              moduleName;
-    size_t                   nSourceFiles;
     std::string              outputDir = ".";
     std::filesystem::path    configFile;
     std::filesystem::path    compileCommandsFile;
