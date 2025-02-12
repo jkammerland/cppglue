@@ -200,18 +200,18 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     createDirectory(outputDir);
 
     // Generate the bindings file
-    auto bindingsPath = outputDir / (moduleName + ".cpp");
+    auto              bindingsPath = outputDir / (moduleName + ".cpp");
     std::stringstream bindingsContent;
     generateBindings(structs, functions, headers, moduleName, bindingsContent);
     writeFileIfDifferent(bindingsPath, bindingsContent.str());
 
     // Generate CMakeLists.txt
-    auto cmakePath = outputDir / "CMakeLists.txt";
+    auto cmakePath    = outputDir / "CMakeLists.txt";
     auto cmakeContent = generateCMakeLists(moduleName, headers);
     writeFileIfDifferent(cmakePath, cmakeContent);
 
     // Generate CPM.cmake
-    auto cpmPath = outputDir / "CPM.cmake";
+    auto cpmPath    = outputDir / "CPM.cmake";
     auto cpmContent = generateCPM("0.40.5");
     writeFileIfDifferent(cpmPath, cpmContent);
 
