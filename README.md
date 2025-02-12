@@ -34,8 +34,35 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/llvm1/lib
 ## Python Bindings
 ```bash
 # Generate python bindings
-# TODO: 
 # enter llvm-runtime container
 # cmake .. -G Ninja -DCMAKE_INSTALL_PREFIX=/app
 # ninja install
 ```
+
+## Testing Python Package Installation
+
+After building the Python bindings, you can test the package installation:
+
+1. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+2. Install the package in development mode:
+```bash
+pip install -e .
+```
+
+3. Test importing the module:
+```python
+import cppglue
+# Your module should now be available
+```
+
+4. To build a wheel for distribution:
+```bash
+python -m build
+```
+
+The wheel file will be created in the `dist/` directory.
