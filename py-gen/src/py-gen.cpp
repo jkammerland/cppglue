@@ -192,6 +192,26 @@ std::string generateCPM(const std::string &version) {
     }
     return templ;
 }
+
+std::string generateSetupPy(const std::string &moduleName) {
+    std::string templ = readTemplate("setup.py.template");
+    size_t pos;
+    const std::string placeholder = "{module_name}";
+    while ((pos = templ.find(placeholder)) != std::string::npos) {
+        templ.replace(pos, placeholder.length(), moduleName);
+    }
+    return templ;
+}
+
+std::string generatePyprojectToml(const std::string &moduleName) {
+    std::string templ = readTemplate("pyproject.toml.template");
+    size_t pos;
+    const std::string placeholder = "{module_name}";
+    while ((pos = templ.find(placeholder)) != std::string::npos) {
+        templ.replace(pos, placeholder.length(), moduleName);
+    }
+    return templ;
+}
 } // namespace
 
 void generateBindings(const Structs &structs, const Functions &functions, const Headers &headers, const std::string &moduleName,
@@ -214,6 +234,21 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     auto cpmPath    = outputDir / "CPM.cmake";
     auto cpmContent = generateCPM("0.40.5");
     writeFileIfDifferent(cpmPath, cpmContent);
+
+    // Generate Python packaging files
+    auto setupPath = outputDir / "setup.py";
+    auto setupContent = generateSetupPy(moduleName);
+    writeFileIfDifferent(setupPath, setupContent);
+
+    auto pyprojectPath = outputDir / "pyproject.toml";
+    auto pyprojectContent = generatePyprojectToml(moduleName);
+    writeFileIfDifferent(pyprojectPath, pyprojectContent);
+
+    // Create package directory and __init__.py
+    auto packageDir = outputDir / moduleName;
+    createDirectory(packageDir);
+    auto initPath = packageDir / "__init__.py";
+    writeFileIfDifferent(initPath, "");
 
     std::cout << "Generated files in: " << outputDir << '\n';
 }
