@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=42", "wheel", "pybind11>=2.10.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{module_name}"
+version = "0.1.0"
+description = "Python bindings generated with py-gen"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/{module_name}"

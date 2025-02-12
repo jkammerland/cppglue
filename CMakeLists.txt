@@ -31,4 +31,23 @@ install_target(${PROJECT_NAME})
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 if(BUILD_PYTHON_BINDINGS)
   add_subdirectory(py-gen)
+  
+  # Install Python module to the Python package directory
+  install(TARGETS ${PROJECT_NAME}
+          LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}
+          COMPONENT python)
+          
+  # Install package files
+  install(FILES 
+          ${CMAKE_CURRENT_BINARY_DIR}/setup.py
+          ${CMAKE_CURRENT_BINARY_DIR}/pyproject.toml
+          ${CMAKE_CURRENT_BINARY_DIR}/README.md
+          DESTINATION ${CMAKE_INSTALL_PREFIX}
+          COMPONENT python)
+          
+  # Create empty __init__.py
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/__init__.py "")
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}/__init__.py
+          DESTINATION ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}
+          COMPONENT python)
 endif()
