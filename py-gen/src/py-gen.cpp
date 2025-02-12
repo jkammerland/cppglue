@@ -126,6 +126,33 @@ void createDirectory(const std::filesystem::path &path) {
     }
 }
 
+bool shouldWriteFile(const std::filesystem::path &path, const std::string &newContent) {
+    if (!std::filesystem::exists(path)) {
+        return true;
+    }
+
+    std::ifstream file(path);
+    if (!file) {
+        return true;
+    }
+
+    std::string existingContent((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    return existingContent != newContent;
+}
+
+void writeFileIfDifferent(const std::filesystem::path &path, const std::string &content) {
+    if (shouldWriteFile(path, content)) {
+        std::ofstream out(path);
+        if (!out) {
+            throw std::runtime_error("Failed to open file for writing: " + path.string());
+        }
+        out << content;
+        std::cout << "Generated: " << path << '\n';
+    } else {
+        std::cout << "Skipped unchanged file: " << path << '\n';
+    }
+}
+
 std::string generateCMakeLists(const std::string &moduleName, const Headers &headers) {
     std::string templ = readTemplate("CMakeLists.txt.template");
 
@@ -173,28 +200,20 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     createDirectory(outputDir);
 
     // Generate the bindings file
-    auto          bindingsPath = outputDir / (moduleName + ".cpp");
-    std::ofstream out(bindingsPath);
-    if (!out) {
-        throw std::runtime_error("Failed to open output file: " + bindingsPath.string());
-    }
-    generateBindings(structs, functions, headers, moduleName, out);
+    auto bindingsPath = outputDir / (moduleName + ".cpp");
+    std::stringstream bindingsContent;
+    generateBindings(structs, functions, headers, moduleName, bindingsContent);
+    writeFileIfDifferent(bindingsPath, bindingsContent.str());
 
     // Generate CMakeLists.txt
-    auto          cmakePath = outputDir / "CMakeLists.txt";
-    std::ofstream cmake(cmakePath);
-    if (!cmake) {
-        throw std::runtime_error("Failed to create CMakeLists.txt: " + cmakePath.string());
-    }
-    cmake << generateCMakeLists(moduleName, headers);
+    auto cmakePath = outputDir / "CMakeLists.txt";
+    auto cmakeContent = generateCMakeLists(moduleName, headers);
+    writeFileIfDifferent(cmakePath, cmakeContent);
 
     // Generate CPM.cmake
-    auto          cpmPath = outputDir / "CPM.cmake";
-    std::ofstream cpm(cpmPath);
-    if (!cpm) {
-        throw std::runtime_error("Failed to create CPM.cmake: " + cpmPath.string());
-    }
-    cpm << generateCPM("0.40.5");
+    auto cpmPath = outputDir / "CPM.cmake";
+    auto cpmContent = generateCPM("0.40.5");
+    writeFileIfDifferent(cpmPath, cpmContent);
 
     std::cout << "Generated files in: " << outputDir << '\n';
 }
