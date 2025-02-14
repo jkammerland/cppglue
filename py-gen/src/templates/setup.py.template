@@ -5,7 +5,7 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     package_data={
-        "{module_name}": ["*.so"],
+        "{module_name}": ["*.so", "*.pyd", "*.dylib"],
     },
     install_requires=[
         "pybind11>=2.10.0",
@@ -13,7 +13,7 @@ setup(
     author="Your Name",
     author_email="your.email@example.com",
     description="Python bindings generated with py-gen",
-    long_description=open("README.md").read(),
+    # long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/{module_name}",
     classifiers=[

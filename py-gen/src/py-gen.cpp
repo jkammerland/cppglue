@@ -194,8 +194,8 @@ std::string generateCPM(const std::string &version) {
 }
 
 std::string generateSetupPy(const std::string &moduleName) {
-    std::string templ = readTemplate("setup.py.template");
-    size_t pos;
+    std::string       templ = readTemplate("setup.py.template");
+    size_t            pos;
     const std::string placeholder = "{module_name}";
     while ((pos = templ.find(placeholder)) != std::string::npos) {
         templ.replace(pos, placeholder.length(), moduleName);
@@ -204,8 +204,8 @@ std::string generateSetupPy(const std::string &moduleName) {
 }
 
 std::string generatePyprojectToml(const std::string &moduleName) {
-    std::string templ = readTemplate("pyproject.toml.template");
-    size_t pos;
+    std::string       templ = readTemplate("pyproject.toml.template");
+    size_t            pos;
     const std::string placeholder = "{module_name}";
     while ((pos = templ.find(placeholder)) != std::string::npos) {
         templ.replace(pos, placeholder.length(), moduleName);
@@ -235,20 +235,23 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     auto cpmContent = generateCPM("0.40.5");
     writeFileIfDifferent(cpmPath, cpmContent);
 
+    // Generate package directory
+    createDirectory(outputDir / moduleName);
+
     // Generate Python packaging files
-    auto setupPath = outputDir / "setup.py";
+    auto setupPath    = outputDir / moduleName / "setup.py";
     auto setupContent = generateSetupPy(moduleName);
     writeFileIfDifferent(setupPath, setupContent);
 
-    auto pyprojectPath = outputDir / "pyproject.toml";
+    auto pyprojectPath    = outputDir / moduleName / "pyproject.toml";
     auto pyprojectContent = generatePyprojectToml(moduleName);
     writeFileIfDifferent(pyprojectPath, pyprojectContent);
 
     // Create package directory and __init__.py
-    auto packageDir = outputDir / moduleName;
+    auto packageDir = outputDir / moduleName / moduleName;
     createDirectory(packageDir);
     auto initPath = packageDir / "__init__.py";
-    writeFileIfDifferent(initPath, "");
+    writeFileIfDifferent(initPath, "from ." + moduleName + " import *");
 
     std::cout << "Generated files in: " << outputDir << '\n';
 }

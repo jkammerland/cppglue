@@ -1,4 +1,4 @@
-sources = ["struct_example_impl.cpp"]
+sources = ["another_ex2.h"]
 module_name = "my_python_module"
 compile_args = [
     "-xc++",
