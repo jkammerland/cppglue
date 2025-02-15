@@ -1,3 +1,4 @@
+#include "print_info.hpp"
 #include "py-gen.h"
 
 #include <clang/Tooling/CompilationDatabase.h>
@@ -232,30 +233,7 @@ int main(int argc, const char **argv) {
         return 1;
     }
 
-    for (const auto &header : headers) {
-        llvm::outs() << "Header: " << header.name << " system: <" << (header.isSystem ? "yes" : "no") << "> (" << header.fullPath << ")\n";
-    }
-
-    for (const auto &structInfo : structs) {
-        llvm::outs() << "Struct: " << fmt::format("{0} ({1})", structInfo.name.plain, structInfo.name.qualified) << "\n";
-        for (const auto &info : structInfo.members) {
-            llvm::outs() << "    " << fmt::format("{0} {1}", info.type.plain, info.name.plain) << "\n";
-        }
-    }
-
-    for (const auto &funcInfo : functions) {
-        llvm::outs() << "Function: " << fmt::format("{0} ({1})", funcInfo.name.plain, funcInfo.name.qualified) << "\n";
-        llvm::outs() << "    Return type: " << fmt::format("{0} ({1})", funcInfo.returnType.plain, funcInfo.returnType.qualified) << "\n";
-
-        if (!funcInfo.parameters.empty()) {
-            llvm::outs() << "    Parameters:\n";
-        }
-        for (const auto &info : funcInfo.parameters) {
-            llvm::outs() << "    " << "    "
-                         << fmt::format("{0} ({1}) {2} ({3})", info.type.plain, info.type.qualified, info.name.plain, info.name.qualified)
-                         << "\n";
-        }
-    }
+    printInfo(structs, functions, headers);
 
     generateBindings(structs, functions, headers, options.moduleName, options.outputDir);
 
