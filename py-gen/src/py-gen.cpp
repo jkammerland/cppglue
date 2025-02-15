@@ -24,20 +24,12 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     }
 
     // Write user and system headers
-    if (!userHeaders.empty()) {
-        out << "\n// User headers\n";
-    } else {
-        out << "\n// User headers - [none found] \n";
-    }
+    out << "\n// User headers" << (userHeaders.empty() ? " - [none found] \n" : "\n");
     for (const auto &header : userHeaders) {
         out << "#include \"" << header << "\"\n";
     }
 
-    if (!systemHeaders.empty()) {
-        out << "\n// System headers\n";
-    } else {
-        out << "\n// System headers - [none found] \n";
-    }
+    out << "\n// System headers" << (systemHeaders.empty() ? " - [none found] \n" : "\n");
     for (const auto &header : systemHeaders) {
         out << "// #include <" << header << ">\n";
     }
