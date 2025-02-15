@@ -74,7 +74,43 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
         // Add member functions
         for (const auto &funcInfo : functions) {
             if (funcInfo.parent.has_value() && funcInfo.parent->qualified == fullName) {
-                out << fmt::format("        .def(\"{0}\", &{1}::{0})\n", funcInfo.name.plain, fullName);
+                // Build parameter documentation string
+                std::string params;
+                if (funcInfo.hasParameters()) {
+                    for (const auto &param : funcInfo.parameters) {
+                        if (!params.empty()) params += ", ";
+                        params += fmt::format("{}: {}", 
+                            param.name.plain,
+                            param.type.plain);
+                    }
+                }
+                
+                // Add function with documentation
+                out << fmt::format("        .def(\"{}\", &{}::{}", 
+                    funcInfo.name.plain, 
+                    fullName,
+                    funcInfo.name.plain);
+                
+                // Add parameter names if present
+                if (funcInfo.hasParameters()) {
+                    out << ", ";
+                    bool first = true;
+                    for (const auto &param : funcInfo.parameters) {
+                        if (!first) out << ", ";
+                        out << "py::arg(\"" << param.name.plain << "\")";
+                        first = false;
+                    }
+                }
+                
+                // Add docstring with type information
+                out << fmt::format(", \"{}({}){}\"{}", 
+                    funcInfo.name.plain,
+                    params,
+                    funcInfo.returnType.plain.empty() ? "" : 
+                        " -> " + funcInfo.returnType.plain,
+                    funcInfo.isPureVirtual ? ", py::is_method()" : "");
+                
+                out << ")\n";
             }
         }
         // Remove last newline and add semicolon
@@ -88,8 +124,38 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
             continue; // Already handled
         }
 
-        out << fmt::format("    m.def(\"{0}\", &{1});\n", funcInfo.name.plain,
-                           funcInfo.name.qualified.empty() ? funcInfo.name.plain : funcInfo.name.qualified);
+        // Build parameter documentation string
+        std::string params;
+        if (funcInfo.hasParameters()) {
+            for (const auto &param : funcInfo.parameters) {
+                if (!params.empty()) params += ", ";
+                params += fmt::format("{}: {}", 
+                    param.name.plain,
+                    param.type.plain);
+            }
+        }
+
+        out << fmt::format("    m.def(\"{}\", &{}", 
+            funcInfo.name.plain,
+            funcInfo.name.qualified.empty() ? funcInfo.name.plain : funcInfo.name.qualified);
+        
+        // Add parameter names if present
+        if (funcInfo.hasParameters()) {
+            out << ", ";
+            bool first = true;
+            for (const auto &param : funcInfo.parameters) {
+                if (!first) out << ", ";
+                out << "py::arg(\"" << param.name.plain << "\")";
+                first = false;
+            }
+        }
+
+        // Add docstring with type information
+        out << fmt::format(", \"{}({}){}\");\n",
+            funcInfo.name.plain,
+            params,
+            funcInfo.returnType.plain.empty() ? "" : 
+                " -> " + funcInfo.returnType.plain);
     }
 
     out << "}\n";
