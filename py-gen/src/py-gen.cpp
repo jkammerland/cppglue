@@ -403,7 +403,12 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     auto packageDir = outputDir / moduleName / moduleName;
     createDirectory(packageDir);
     auto initPath = packageDir / "__init__.py";
-    writeFileIfDifferent(initPath, "from ." + moduleName + " import *");
+    // Generate __init__.py that properly imports and re-exports symbols
+    std::stringstream initContent;
+    initContent << "from ." << moduleName << " import *  # type: ignore\n\n"
+                << "# Re-export all symbols defined in the .pyi stub file\n"
+                << "__all__ = []  # Will be populated by type hints from .pyi\n";
+    writeFileIfDifferent(initPath, initContent.str());
 
     // Generate .pyi stub file
     auto pyiPath    = packageDir / (moduleName + ".pyi");
