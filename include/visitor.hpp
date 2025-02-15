@@ -19,6 +19,7 @@ struct DeclarationName {
 struct FieldDeclarationInfo {
     DeclarationName type;
     DeclarationName name;
+    int64_t         value{0};
     bool            isConst{false};
     bool            isPointer{false};
     bool            isReference{false};
@@ -152,6 +153,7 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
             fieldInfo.type.qualified = declaration->getIntegerType().getCanonicalType().getAsString();
             fieldInfo.name.plain     = enumerator->getName();
             fieldInfo.name.qualified = enumerator->getQualifiedNameAsString();
+            fieldInfo.value          = enumerator->getInitVal().getExtValue();
             info.members.emplace_back(fieldInfo);
         }
 

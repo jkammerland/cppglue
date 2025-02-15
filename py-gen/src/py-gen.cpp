@@ -78,38 +78,32 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
                 std::string params;
                 if (funcInfo.hasParameters()) {
                     for (const auto &param : funcInfo.parameters) {
-                        if (!params.empty()) params += ", ";
-                        params += fmt::format("{}: {}", 
-                            param.name.plain,
-                            param.type.plain);
+                        if (!params.empty())
+                            params += ", ";
+                        params += fmt::format("{}: {}", param.name.plain, param.type.plain);
                     }
                 }
-                
+
                 // Add function with documentation
-                out << fmt::format("        .def(\"{}\", &{}::{}", 
-                    funcInfo.name.plain, 
-                    fullName,
-                    funcInfo.name.plain);
-                
+                out << fmt::format("        .def(\"{}\", &{}::{}", funcInfo.name.plain, fullName, funcInfo.name.plain);
+
                 // Add parameter names if present
                 if (funcInfo.hasParameters()) {
                     out << ", ";
                     bool first = true;
                     for (const auto &param : funcInfo.parameters) {
-                        if (!first) out << ", ";
+                        if (!first)
+                            out << ", ";
                         out << "py::arg(\"" << param.name.plain << "\")";
                         first = false;
                     }
                 }
-                
+
                 // Add docstring with type information
-                out << fmt::format(", \"{}({}){}\"{}", 
-                    funcInfo.name.plain,
-                    params,
-                    funcInfo.returnType.plain.empty() ? "" : 
-                        " -> " + funcInfo.returnType.plain,
-                    funcInfo.isPureVirtual ? ", py::is_method()" : "");
-                
+                out << fmt::format(", \"{}({}){}\"{}", funcInfo.name.plain, params,
+                                   funcInfo.returnType.plain.empty() ? "" : " -> " + funcInfo.returnType.plain,
+                                   funcInfo.isPureVirtual ? ", py::is_method()" : "");
+
                 out << ")\n";
             }
         }
@@ -128,34 +122,30 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
         std::string params;
         if (funcInfo.hasParameters()) {
             for (const auto &param : funcInfo.parameters) {
-                if (!params.empty()) params += ", ";
-                params += fmt::format("{}: {}", 
-                    param.name.plain,
-                    param.type.plain);
+                if (!params.empty())
+                    params += ", ";
+                params += fmt::format("{}: {}", param.name.plain, param.type.plain);
             }
         }
 
-        out << fmt::format("    m.def(\"{}\", &{}", 
-            funcInfo.name.plain,
-            funcInfo.name.qualified.empty() ? funcInfo.name.plain : funcInfo.name.qualified);
-        
+        out << fmt::format("    m.def(\"{}\", &{}", funcInfo.name.plain,
+                           funcInfo.name.qualified.empty() ? funcInfo.name.plain : funcInfo.name.qualified);
+
         // Add parameter names if present
         if (funcInfo.hasParameters()) {
             out << ", ";
             bool first = true;
             for (const auto &param : funcInfo.parameters) {
-                if (!first) out << ", ";
+                if (!first)
+                    out << ", ";
                 out << "py::arg(\"" << param.name.plain << "\")";
                 first = false;
             }
         }
 
         // Add docstring with type information
-        out << fmt::format(", \"{}({}){}\");\n",
-            funcInfo.name.plain,
-            params,
-            funcInfo.returnType.plain.empty() ? "" : 
-                " -> " + funcInfo.returnType.plain);
+        out << fmt::format(", \"{}({}){}\");\n", funcInfo.name.plain, params,
+                           funcInfo.returnType.plain.empty() ? "" : " -> " + funcInfo.returnType.plain);
     }
 
     out << "}\n";
@@ -270,6 +260,110 @@ std::string generatePyprojectToml(const std::string &moduleName) {
     }
     return templ;
 }
+
+std::string toPythonType(const std::string &cppType) {
+    // Handle complex types
+    if (cppType == "std::complex<double>" || cppType == "std::complex<float>")
+        return "Complex";
+    if (cppType == "Complex")
+        return "Complex";
+
+    // Handle basic types
+    if (cppType == "int" || cppType == "long")
+        return "int";
+    if (cppType == "float" || cppType == "double")
+        return "float";
+    if (cppType == "bool")
+        return "bool";
+    if (cppType == "std::string")
+        return "str";
+
+    // Handle templated types
+    if (cppType.starts_with("std::vector<")) {
+        std::string innerType = cppType.substr(12, cppType.length() - 13);
+        return "List[" + toPythonType(innerType) + "]";
+    }
+    if (cppType.starts_with("std::optional<")) {
+        std::string innerType = cppType.substr(14, cppType.length() - 15);
+        return "Optional[" + toPythonType(innerType) + "]";
+    }
+    if (cppType.starts_with("std::function<")) {
+        std::string signature  = cppType.substr(14, cppType.length() - 15);
+        size_t      returnPos  = signature.find("(");
+        std::string returnType = signature.substr(0, returnPos);
+        std::string args       = signature.substr(returnPos + 1, signature.length() - returnPos - 2);
+        return "Callable[[], " + toPythonType(returnType) + "]";
+    }
+
+    // Handle scoped types (remove namespace qualifiers)
+    size_t scopePos = cppType.find("::");
+    if (scopePos != std::string::npos) {
+        return cppType.substr(scopePos + 2);
+    }
+
+    // For custom types, use the type as-is
+    return cppType;
+}
+
+std::string generatePyi(const Structs &structs, const Functions &functions) {
+    std::stringstream out;
+
+    // Add common imports
+    out << "from typing import Optional, Callable, List, Dict, Set, Tuple, Union, overload\n"
+        << "from typing import TypeVar, Generic, Complex\n" // Added Complex import
+        << "from enum import Enum\n"                        // Added Enum import
+        << "import numpy.typing as npt\n"
+        << "import numpy as np\n\n";
+
+    // Generate enum definitions
+    for (const auto &structInfo : structs) {
+        if (structInfo.isEnum) {
+            out << "class " << structInfo.name.plain << "(Enum):\n"; // Make it inherit from Enum
+            for (const auto &member : structInfo.members) {
+                out << "    " << member.name.plain << " = " // Add value assignment
+                    << member.value << "\n";                // Assuming you have value information in your Member struct
+            }
+            out << "\n";
+        }
+    }
+
+    // First generate forward declarations for all classes
+    for (const auto &structInfo : structs) {
+        if (!structInfo.isEnum) {
+            out << "class " << structInfo.name.plain << ":\n    ...\n\n";
+        }
+    }
+
+    // Then generate full class definitions
+    for (const auto &structInfo : structs) {
+        if (!structInfo.isEnum) {
+            out << "class " << structInfo.name.plain << ":\n";
+            out << "    def __init__(self) -> None: ...\n\n";
+
+            // Properties
+            for (const auto &member : structInfo.members) {
+                out << "    " << member.name.plain << ": " << toPythonType(member.type.plain) << "\n";
+            }
+
+            // Member functions
+            for (const auto &funcInfo : functions) {
+                if (funcInfo.parent.has_value() && funcInfo.parent->qualified == structInfo.name.qualified) {
+                    out << "    def " << funcInfo.name.plain << "(self";
+                    if (funcInfo.hasParameters()) {
+                        for (const auto &param : funcInfo.parameters) {
+                            out << ", " << param.name.plain << ": " << toPythonType(param.type.plain);
+                        }
+                    }
+                    out << ") -> " << (funcInfo.returnType.plain.empty() ? "None" : toPythonType(funcInfo.returnType.plain)) << ": ...\n";
+                }
+            }
+            out << "\n";
+        }
+    }
+
+    // Rest of the function remains the same...
+    return out.str();
+}
 } // namespace
 
 void generateBindings(const Structs &structs, const Functions &functions, const Headers &headers, const std::string &moduleName,
@@ -310,6 +404,11 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     createDirectory(packageDir);
     auto initPath = packageDir / "__init__.py";
     writeFileIfDifferent(initPath, "from ." + moduleName + " import *");
+
+    // Generate .pyi stub file
+    auto pyiPath    = packageDir / (moduleName + ".pyi");
+    auto pyiContent = generatePyi(structs, functions);
+    writeFileIfDifferent(pyiPath, pyiContent);
 
     std::cout << "Generated files in: " << outputDir << '\n';
 }

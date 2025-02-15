@@ -18,9 +18,5 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         "$<TARGET_FILE:${PROJECT_NAME}>"
         "${PACKAGE_OUTPUT_PATH}/${PROJECT_NAME}"
-    # Try to copy .pyi file, but don't fail if it doesn't exist
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${PROJECT_NAME}.pyi"
-        "${PACKAGE_OUTPUT_PATH}/${PROJECT_NAME}" || true
     COMMENT "Copying files to ${PACKAGE_OUTPUT_PATH}/${PROJECT_NAME}/${PROJECT_NAME}"
 )

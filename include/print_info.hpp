@@ -10,9 +10,14 @@ inline void printInfo(const Structs &structs, const Functions &functions, const 
     }
 
     for (const auto &structInfo : structs) {
-        llvm::outs() << "Struct: " << fmt::format("{0} ({1})", structInfo.name.plain, structInfo.name.qualified) << "\n";
+        llvm::outs() << "Struct: "
+                     << fmt::format("{0} ({1}) isEnum: {2}", structInfo.name.plain, structInfo.name.qualified, structInfo.isEnum) << "\n";
         for (const auto &info : structInfo.members) {
-            llvm::outs() << "    " << fmt::format("{0} {1}", info.type.plain, info.name.plain) << "\n";
+            llvm::outs() << "    " << fmt::format("{0} {1}", info.type.plain, info.name.plain);
+            if (structInfo.isEnum) {
+                llvm::outs() << fmt::format(" = {}", info.value);
+            }
+            llvm::outs() << "\n";
         }
     }
 
