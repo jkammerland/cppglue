@@ -82,3 +82,11 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/templates/
 # Copy templates POST_BUILD for development/testing
 message(STATUS "Copying templates to build directory")
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/src/templates $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates)
+
+# Add custom target to run generator
+add_custom_target(run_generator
+    COMMAND ${CMAKE_COMMAND} -E echo "Running generator with config: ${CONFIG_FILE}"
+    COMMAND ${PROJECT_NAME} "-c" ${CONFIG_FILE}
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    USES_TERMINAL
+)
