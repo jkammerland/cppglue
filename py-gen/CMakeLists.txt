@@ -68,16 +68,22 @@ set(CPPGLUE_PUBLIC_DEPENDENCIES "find_dependency(fmt) find_dependency(cppglue) f
 add_subdirectory(tests)
 
 # Copy templates to build directory for development/testing
+file(GLOB_RECURSE TEMPLATE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/templates/*.template")
+foreach(template_file IN LISTS TEMPLATE_FILES)
+  configure_file(${template_file} ${CMAKE_BINARY_DIR}/${PROJECT_NAME}_templates_stamp COPYONLY)
+endforeach()
+
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/templates
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates)
+  COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/templates
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>/templates
+  DEPENDS ${CMAKE_BINARY_DIR}/${PROJECT_NAME}_templates_stamp)
 
 # Install templates alongside executable
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/templates/
-        DESTINATION ${CMAKE_INSTALL_BINDIR}/templates
-        FILES_MATCHING PATTERN "*.template")
+    DESTINATION ${CMAKE_INSTALL_BINDIR}/templates
+    FILES_MATCHING PATTERN "*.template")
 
 # Copy templates POST_BUILD for development/testing
 message(STATUS "Copying templates to build directory")

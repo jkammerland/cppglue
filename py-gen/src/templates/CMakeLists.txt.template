@@ -1,12 +1,26 @@
 cmake_minimum_required(VERSION 3.15)
-project({module_name}_bindings)
+project({module_name})
+
+# Add option for custom output path with a default value
+set(PACKAGE_OUTPUT_PATH "../${PROJECT_NAME}" CACHE PATH "Path to copy the built files")
 
 set(PYBIND11_FINDPYTHON ON)
 
 include(CPM.cmake)
 cpmaddpackage("gh:pybind/pybind11@2.13.6")
 
-pybind11_add_module({module_name} {module_name}.cpp)
+pybind11_add_module(${PROJECT_NAME} ${PROJECT_NAME}.cpp)
 
-target_compile_definitions({module_name} PRIVATE VERSION_INFO=${PROJECT_VERSION})
-install(TARGETS {module_name} DESTINATION ${CMAKE_BINARY_DIR}/python_bindings)
+target_compile_definitions(${PROJECT_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION})
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PACKAGE_OUTPUT_PATH}/${PROJECT_NAME}/${PROJECT_NAME}"
+    COMMAND ${CMAKE_COMMAND} -E copy
+        "$<TARGET_FILE:${PROJECT_NAME}>"
+        "${PACKAGE_OUTPUT_PATH}/${PROJECT_NAME}"
+    # Try to copy .pyi file, but don't fail if it doesn't exist
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${PROJECT_NAME}.pyi"
+        "${PACKAGE_OUTPUT_PATH}/${PROJECT_NAME}" || true
+    COMMENT "Copying files to ${PACKAGE_OUTPUT_PATH}/${PROJECT_NAME}/${PROJECT_NAME}"
+)
