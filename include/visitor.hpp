@@ -71,6 +71,29 @@ using Functions = std::vector<FunctionInfo>;
  */
 using VisitCompleteCallback = std::function<void(Structs &&, Functions &&)>;
 
+static std::optional<std::string> getNamespaceFromContext(const clang::DeclContext *declContext) {
+    if (const auto *namespaceDecl = llvm::dyn_cast<clang::NamespaceDecl>(declContext)) {
+        return namespaceDecl->getName().str();
+    }
+    return std::nullopt;
+}
+
+template <typename T> static DeclarationName createDeclarationName(const T *declaration) {
+    return DeclarationName{.plain      = declaration->getName().str(),
+                           .qualified  = declaration->getQualifiedNameAsString(),
+                           .namespace_ = getNamespaceFromContext(declaration->getDeclContext())};
+}
+
+static FieldDeclarationInfo createFieldInfo(const clang::QualType &type, const std::string &name, const std::string &qualifiedName) {
+    return FieldDeclarationInfo{
+        .type        = {.plain = type.getAsString(), .qualified = type.getCanonicalType().getAsString(), .namespace_ = std::nullopt},
+        .name        = {.plain = name, .qualified = qualifiedName, .namespace_ = std::nullopt},
+        .isConst     = type.isConstQualified(),
+        .isPointer   = type->isPointerType(),
+        .isReference = type->isReferenceType(),
+        .functionals = {}};
+}
+
 class Visitor : public clang::RecursiveASTVisitor<Visitor> {
   public:
     explicit Visitor(clang::ASTContext *context, VisitCompleteCallback cb) : context_(context), cb_(std::move(cb)) {}
@@ -107,41 +130,20 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
     }
 
     bool VisitCXXRecordDecl(clang::CXXRecordDecl *declaration) {
-
         auto [isNonUserCode, qName] = FilterQualifiedName(declaration);
         if (isNonUserCode) {
             return true;
         }
 
         StructInfo info;
-
-        const clang::DeclContext *declContext = declaration->getDeclContext();
-        if (const auto *namespaceDecl = llvm::dyn_cast<clang::NamespaceDecl>(declContext)) { /* Namespace */
-            // llvm::outs() << "[ NAMESPACE: " << namespaceDecl->getName() << " ]";
-            info.name.namespace_ = namespaceDecl->getName();
-        } else {
-            // llvm::outs() << "[ GLOBAL ]";
-            info.name.namespace_ = std::nullopt;
-        }
-
-        // llvm::outs() << declaration->getName() << "\n";
-        info.name.plain     = declaration->getName();
-        info.name.qualified = declaration->getQualifiedNameAsString();
+        info.name = createDeclarationName(declaration);
 
         for (const auto *field : declaration->fields()) {
-            FieldDeclarationInfo fieldInfo;
-            fieldInfo.type.plain     = field->getType().getAsString();
-            fieldInfo.type.qualified = field->getType().getCanonicalType().getAsString();
-            fieldInfo.name.plain     = field->getName();
-            fieldInfo.name.qualified = field->getQualifiedNameAsString();
-            fieldInfo.isConst        = field->getType().isConstQualified();
-            fieldInfo.isPointer      = field->getType()->isPointerType();
-            fieldInfo.isReference    = field->getType()->isReferenceType();
-            fieldInfo.isPublic       = field->getAccess() == clang::AccessSpecifier::AS_public;
+            auto fieldInfo     = createFieldInfo(field->getType(), field->getName().str(), field->getQualifiedNameAsString());
+            fieldInfo.isPublic = field->getAccess() == clang::AccessSpecifier::AS_public;
             info.members.emplace_back(fieldInfo);
         }
         structs_.push_back(info);
-
         return true;
     }
 
@@ -187,37 +189,23 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         }
 
         FunctionInfo info;
+        info.name       = createDeclarationName(declaration);
+        info.namespace_ = getNamespaceFromContext(declaration->getDeclContext());
 
-        const clang::DeclContext *declContext = declaration->getDeclContext();
-        if (const auto *namespaceDecl = llvm::dyn_cast<clang::NamespaceDecl>(declContext)) { /* Namespace */
-            info.namespace_ = namespaceDecl->getName();
-        } else {
-            info.namespace_ = std::nullopt;
-        }
+        info.returnType = {.plain      = declaration->getReturnType().getAsString(),
+                           .qualified  = declaration->getReturnType().getCanonicalType().getAsString(),
+                           .namespace_ = std::nullopt};
 
         if (auto *method = llvm::dyn_cast<clang::CXXMethodDecl>(declaration)) {
-            info.parent            = DeclarationName{};
-            info.isMemberFunction  = true;
-            info.parent->plain     = method->getParent()->getName();
-            info.parent->qualified = method->getParent()->getQualifiedNameAsString();
-            auto *declContext      = method->getParent()->getDeclContext();
-            if (const auto *namespaceDecl = llvm::dyn_cast<clang::NamespaceDecl>(declContext)) {
-                info.parent->namespace_ = namespaceDecl->getName();
-            } else {
-                info.parent->namespace_ = std::nullopt;
-            }
+            info.isMemberFunction = true;
+            info.parent           = createDeclarationName(method->getParent());
         } else {
             info.parent           = std::nullopt;
             info.isMemberFunction = false;
         }
 
-        info.name.plain     = declaration->getName();
-        info.name.qualified = declaration->getQualifiedNameAsString();
-        info.isPureVirtual  = declaration->isPureVirtual();
-        info.isStatic       = declaration->isStatic();
-
-        info.returnType.plain     = declaration->getReturnType().getAsString();
-        info.returnType.qualified = declaration->getReturnType().getAsString();
+        info.isPureVirtual = declaration->isPureVirtual();
+        info.isStatic      = declaration->isStatic();
 
         for (const auto *param : declaration->parameters()) {
             FieldDeclarationInfo fieldInfo;
