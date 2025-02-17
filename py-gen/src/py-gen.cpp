@@ -152,6 +152,54 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
 }
 
 namespace {
+// Add at top of anonymous namespace
+struct TemplateProcessor {
+    static std::string replace(std::string templ, const std::string& placeholder, const std::string& value) {
+        size_t pos;
+        while ((pos = templ.find(placeholder)) != std::string::npos) {
+            templ.replace(pos, placeholder.length(), value);
+        }
+        return templ;
+    }
+};
+
+class FileWriter {
+public:
+    static void writeIfDifferent(const std::filesystem::path& path, const std::string& content) {
+        if (shouldWrite(path, content)) {
+            std::ofstream out(path);
+            if (!out) {
+                throw std::runtime_error("Failed to open file for writing: " + path.string());
+            }
+            out << content;
+            std::cout << "Generated: " << path << '\n';
+        } else {
+            std::cout << "Skipped unchanged file: " << path << '\n';
+        }
+    }
+
+    static void ensureDirectory(const std::filesystem::path& path) {
+        if (!std::filesystem::exists(path)) {
+            if (!std::filesystem::create_directories(path)) {
+                throw std::runtime_error("Failed to create directory: " + path.string());
+            }
+            std::cout << "Created directory: " << path << '\n';
+        }
+    }
+
+private:
+    static bool shouldWrite(const std::filesystem::path& path, const std::string& newContent) {
+        if (!std::filesystem::exists(path)) return true;
+        
+        std::ifstream file(path);
+        if (!file) return true;
+        
+        std::string existingContent((std::istreambuf_iterator<char>(file)), 
+                                  std::istreambuf_iterator<char>());
+        return existingContent != newContent;
+    }
+};
+
 std::string readTemplate(const std::string &templateName) {
     // Template file is installed alongside the executable
     std::filesystem::path exePath      = std::filesystem::canonical("/proc/self/exe");
@@ -165,41 +213,6 @@ std::string readTemplate(const std::string &templateName) {
     return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 }
 
-void createDirectory(const std::filesystem::path &path) {
-    if (!std::filesystem::exists(path)) {
-        if (!std::filesystem::create_directories(path)) {
-            throw std::runtime_error("Failed to create directory: " + path.string());
-        }
-        std::cout << "Created directory: " << path << '\n';
-    }
-}
-
-bool shouldWriteFile(const std::filesystem::path &path, const std::string &newContent) {
-    if (!std::filesystem::exists(path)) {
-        return true;
-    }
-
-    std::ifstream file(path);
-    if (!file) {
-        return true;
-    }
-
-    std::string existingContent((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    return existingContent != newContent;
-}
-
-void writeFileIfDifferent(const std::filesystem::path &path, const std::string &content) {
-    if (shouldWriteFile(path, content)) {
-        std::ofstream out(path);
-        if (!out) {
-            throw std::runtime_error("Failed to open file for writing: " + path.string());
-        }
-        out << content;
-        std::cout << "Generated: " << path << '\n';
-    } else {
-        std::cout << "Skipped unchanged file: " << path << '\n';
-    }
-}
 
 std::string generateCMakeLists(const std::string &moduleName, const Headers &headers) {
     std::string templ = readTemplate("CMakeLists.txt.template");
@@ -214,12 +227,7 @@ std::string generateCMakeLists(const std::string &moduleName, const Headers &hea
     }
     headerFiles << "\n";
 
-    // Replace placeholders
-    size_t            pos;
-    const std::string placeholder = "{module_name}";
-    while ((pos = templ.find(placeholder)) != std::string::npos) {
-        templ.replace(pos, placeholder.length(), moduleName);
-    }
+    templ = TemplateProcessor::replace(templ, "{module_name}", moduleName);
 
     // Insert header files section after the project() line
     if ((pos = templ.find("project(")) != std::string::npos) {
@@ -231,34 +239,18 @@ std::string generateCMakeLists(const std::string &moduleName, const Headers &hea
 }
 
 std::string generateCPM(const std::string &version) {
-    std::string templ = readTemplate("CPM.cmake.template");
-    // Replace placeholders
-    size_t            pos;
-    const std::string placeholder = "{version}";
-    while ((pos = templ.find(placeholder)) != std::string::npos) {
-        templ.replace(pos, placeholder.length(), version);
-    }
-    return templ;
+    return TemplateProcessor::replace(readTemplate("CPM.cmake.template"), 
+                                    "{version}", version);
 }
 
 std::string generateSetupPy(const std::string &moduleName) {
-    std::string       templ = readTemplate("setup.py.template");
-    size_t            pos;
-    const std::string placeholder = "{module_name}";
-    while ((pos = templ.find(placeholder)) != std::string::npos) {
-        templ.replace(pos, placeholder.length(), moduleName);
-    }
-    return templ;
+    return TemplateProcessor::replace(readTemplate("setup.py.template"), 
+                                    "{module_name}", moduleName);
 }
 
 std::string generatePyprojectToml(const std::string &moduleName) {
-    std::string       templ = readTemplate("pyproject.toml.template");
-    size_t            pos;
-    const std::string placeholder = "{module_name}";
-    while ((pos = templ.find(placeholder)) != std::string::npos) {
-        templ.replace(pos, placeholder.length(), moduleName);
-    }
-    return templ;
+    return TemplateProcessor::replace(readTemplate("pyproject.toml.template"), 
+                                    "{module_name}", moduleName);
 }
 
 std::string toPythonType(const std::string &cppType) {
@@ -402,52 +394,45 @@ std::string generatePyi(const Structs &structs, const Functions &functions) {
 
 void generateBindings(const Structs &structs, const Functions &functions, const Headers &headers, const std::string &moduleName,
                       const std::filesystem::path &outputDir) {
-    // Create output directory if it doesn't exist
-    createDirectory(outputDir);
+    // Create output directory
+    FileWriter::ensureDirectory(outputDir);
 
-    // Generate the bindings file
-    auto              bindingsPath = outputDir / (moduleName + ".cpp");
+    // Generate bindings file
     std::stringstream bindingsContent;
     generateBindings(structs, functions, headers, moduleName, bindingsContent);
-    writeFileIfDifferent(bindingsPath, bindingsContent.str());
+    FileWriter::writeIfDifferent(outputDir / (moduleName + ".cpp"), 
+                                bindingsContent.str());
 
-    // Generate CMakeLists.txt
-    auto cmakePath    = outputDir / "CMakeLists.txt";
-    auto cmakeContent = generateCMakeLists(moduleName, headers);
-    writeFileIfDifferent(cmakePath, cmakeContent);
+    // Generate build files
+    FileWriter::writeIfDifferent(outputDir / "CMakeLists.txt", 
+                                generateCMakeLists(moduleName, headers));
+    FileWriter::writeIfDifferent(outputDir / "CPM.cmake", 
+                                generateCPM("0.40.5"));
 
-    // Generate CPM.cmake
-    auto cpmPath    = outputDir / "CPM.cmake";
-    auto cpmContent = generateCPM("0.40.5");
-    writeFileIfDifferent(cpmPath, cpmContent);
-
-    // Generate package directory
-    createDirectory(outputDir / moduleName);
+    // Create package directory
+    auto packageDir = outputDir / moduleName;
+    FileWriter::ensureDirectory(packageDir);
 
     // Generate Python packaging files
-    auto setupPath    = outputDir / moduleName / "setup.py";
-    auto setupContent = generateSetupPy(moduleName);
-    writeFileIfDifferent(setupPath, setupContent);
+    FileWriter::writeIfDifferent(packageDir / "setup.py", 
+                                generateSetupPy(moduleName));
+    FileWriter::writeIfDifferent(packageDir / "pyproject.toml", 
+                                generatePyprojectToml(moduleName));
 
-    auto pyprojectPath    = outputDir / moduleName / "pyproject.toml";
-    auto pyprojectContent = generatePyprojectToml(moduleName);
-    writeFileIfDifferent(pyprojectPath, pyprojectContent);
+    // Create and populate module directory
+    auto moduleDir = packageDir / moduleName;
+    FileWriter::ensureDirectory(moduleDir);
 
-    // Create package directory and __init__.py
-    auto packageDir = outputDir / moduleName / moduleName;
-    createDirectory(packageDir);
-    auto initPath = packageDir / "__init__.py";
-    // Generate __init__.py that properly imports and re-exports symbols
+    // Generate __init__.py
     std::stringstream initContent;
     initContent << "from ." << moduleName << " import *  # type: ignore\n\n"
                 << "# Re-export all symbols defined in the .pyi stub file\n"
                 << "__all__ = []  # Will be populated by type hints from .pyi\n";
-    writeFileIfDifferent(initPath, initContent.str());
+    FileWriter::writeIfDifferent(moduleDir / "__init__.py", initContent.str());
 
     // Generate .pyi stub file
-    auto pyiPath    = packageDir / (moduleName + ".pyi");
-    auto pyiContent = generatePyi(structs, functions);
-    writeFileIfDifferent(pyiPath, pyiContent);
+    FileWriter::writeIfDifferent(moduleDir / (moduleName + ".pyi"), 
+                                generatePyi(structs, functions));
 
     std::cout << "Generated files in: " << outputDir << '\n';
 }
