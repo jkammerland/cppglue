@@ -30,8 +30,24 @@ inline void printInfo(const Structs &structs, const Functions &functions, const 
         }
         for (const auto &info : funcInfo.parameters) {
             llvm::outs() << "    " << "    "
-                         << fmt::format("{0} ({1}) {2} ({3})", info.type.plain, info.type.qualified, info.name.plain, info.name.qualified)
+                         << fmt::format("{0} ({1}) {2} ({3}), isFunctional:{4}", info.type.plain, info.type.qualified, info.name.plain,
+                                        info.name.qualified, info.isFunctional)
                          << "\n";
+            // TODO: Fix me with recursive printing
+            if (info.isFunctional) {
+                for (const auto &fInfo : info.functionals) {
+                    llvm::outs() << "    " << "    " << "    "
+                                 << fmt::format("    {0} ({1}) {2} ({3})", fInfo.returnType.plain, fInfo.returnType.qualified,
+                                                fInfo.name.plain, fInfo.name.qualified)
+                                 << "\n";
+                    for (const auto &pInfo : fInfo.parameters) {
+                        llvm::outs() << "    " << "    " << "    " << "    "
+                                     << fmt::format("    {0} ({1}) {2} ({3})", pInfo.type.plain, pInfo.type.qualified, pInfo.name.plain,
+                                                    pInfo.name.qualified)
+                                     << "\n";
+                    }
+                }
+            }
         }
     }
 }

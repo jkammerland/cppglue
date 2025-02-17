@@ -1,8 +1,12 @@
 #pragma once
 
 #include <clang/AST/ASTContext.h>
+#include <clang/AST/Decl.h>
+#include <clang/AST/ExprCXX.h>
 #include <clang/AST/RecursiveASTVisitor.h>
+#include <clang/Basic/SourceManager.h>
 #include <fmt/format.h>
+#include <llvm/Support/raw_ostream.h>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -16,6 +20,10 @@ struct DeclarationName {
     [[nodiscard]] bool hasNamespace() const noexcept { return namespace_.has_value(); }
 };
 
+struct StructInfo;
+struct FunctionInfo;
+struct FieldDeclarationInfo;
+
 struct FieldDeclarationInfo {
     DeclarationName type;
     DeclarationName name;
@@ -23,11 +31,13 @@ struct FieldDeclarationInfo {
     bool            isConst{false};
     bool            isPointer{false};
     bool            isReference{false};
-    // bool            isStatic{false};    // Not working
-    // bool            isConstexpr{false}; // Not working
-    bool isPublic{false};
+    bool            isFunctional{false};
+    bool            isPublic{false};
+    bool            spare1{false};
 
-    [[nodiscard]] constexpr bool isSpecial() const noexcept { return isConst || isPointer || isReference /*|| isStatic || isConstexpr*/; }
+    std::vector<FunctionInfo> functionals;
+
+    [[nodiscard]] constexpr bool isSpecial() const noexcept { return isConst || isPointer || isReference || isFunctional || spare1; }
 };
 
 struct StructInfo {
@@ -127,12 +137,20 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
             fieldInfo.isConst        = field->getType().isConstQualified();
             fieldInfo.isPointer      = field->getType()->isPointerType();
             fieldInfo.isReference    = field->getType()->isReferenceType();
-            // fieldInfo.? = field->getTypeSourceInfo()->getType()->isAggregateType();
-            fieldInfo.isPublic = field->getAccess() == clang::AccessSpecifier::AS_public;
+            fieldInfo.isPublic       = field->getAccess() == clang::AccessSpecifier::AS_public;
             info.members.emplace_back(fieldInfo);
         }
         structs_.push_back(info);
 
+        return true;
+    }
+
+    bool VisitLambdaExpr(clang::LambdaExpr *lambda) {
+        auto [isNonUserCode, qName] = FilterQualifiedName(lambda->getCallOperator());
+        if (isNonUserCode) {
+            return true;
+        }
+        // llvm::outs() << "Lambda: " << qName << " in VisitLambdaExpr, returning immidiately\n";
         return true;
     }
 
@@ -159,17 +177,6 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
 
         structs_.push_back(info);
 
-        return true;
-    }
-
-    bool VisitCXXMethodDecl(clang::CXXMethodDecl *declaration) {
-        auto [isNonUserCode, qName] = FilterQualifiedName(declaration);
-        if (isNonUserCode) {
-            return true;
-        }
-        // llvm::outs() << "Struct: " << declaration->getParent()->getQualifiedNameAsString() << " methods: ";
-        // llvm::outs() << " " << declaration->getQualifiedNameAsString() << " ";
-        // llvm::outs() << "isPureVirtual: " << (declaration->isPureVirtual() ? "<yes>" : "<no>") << "\n";
         return true;
     }
 
@@ -214,6 +221,73 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
 
         for (const auto *param : declaration->parameters()) {
             FieldDeclarationInfo fieldInfo;
+
+            using namespace clang;
+            QualType paramType = param->getType();
+
+            // Get the CXXRecordDecl if this is a class/struct type
+            if (const CXXRecordDecl *recordDecl = paramType->getAsCXXRecordDecl()) {
+                // Check if this is a template specialization
+                if (const auto *templateDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
+
+                    // Check if this is std::function
+                    if (templateDecl->getIdentifier()->getName() == "function") {
+                        // Get the template arguments
+                        const TemplateArgumentList &args = templateDecl->getTemplateArgs();
+                        if (args.size() > 0) {
+                            // The first argument should be the function type
+                            if (args[0].getKind() == TemplateArgument::Type) {
+                                QualType functionType = args[0].getAsType();
+
+                                // Get the actual function type
+                                if (const auto *protoType = functionType->getAs<FunctionProtoType>()) {
+                                    // Get return type
+                                    QualType returnType = protoType->getReturnType();
+
+                                    // TODO: fix dirty hack cleaning the type names
+                                    // Remove 'struct' or 'class' prefixes if present
+                                    auto cleanTypeName = [](std::string &type) {
+                                        const std::array<std::string, 2> prefixes = {"struct ", "class "};
+                                        for (const auto &prefix : prefixes) {
+                                            if (type.substr(0, prefix.length()) == prefix) {
+                                                type = type.substr(prefix.length());
+                                            }
+                                        }
+                                    };
+
+                                    FunctionInfo functionalInfo;
+                                    functionalInfo.returnType.plain     = returnType.getAsString();
+                                    functionalInfo.returnType.qualified = returnType.getCanonicalType().getAsString();
+
+                                    cleanTypeName(functionalInfo.returnType.plain);
+                                    cleanTypeName(functionalInfo.returnType.qualified);
+
+                                    // Get parameter types
+                                    for (const QualType &argType : protoType->getParamTypes()) {
+                                        FieldDeclarationInfo paramInfo;
+                                        paramInfo.type.plain     = argType.getAsString();
+                                        paramInfo.type.qualified = argType.getCanonicalType().getAsString();
+
+                                        cleanTypeName(paramInfo.type.plain);
+                                        cleanTypeName(paramInfo.type.qualified);
+
+                                        paramInfo.isConst     = argType.isConstQualified();
+                                        paramInfo.isPointer   = argType->isPointerType();
+                                        paramInfo.isReference = argType->isReferenceType();
+
+                                        functionalInfo.parameters.emplace_back(paramInfo);
+                                    }
+
+                                    // Store the functional info
+                                    fieldInfo.isFunctional = true;
+                                    fieldInfo.functionals.emplace_back(functionalInfo);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             fieldInfo.type.plain     = param->getType().getAsString();
             fieldInfo.type.qualified = param->getType().getCanonicalType().getAsString();
             fieldInfo.name.plain     = param->getName();
