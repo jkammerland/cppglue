@@ -252,7 +252,9 @@ std::string generatePyprojectToml(const std::string &moduleName) {
 }
 
 std::string toPythonType(const std::string &cppType) {
-    // Handle complex types
+    // Handle void and complex types
+    if (cppType == "void")
+        return "None";
     if (cppType == "std::complex<double>" || cppType == "std::complex<float>")
         return "Complex";
     if (cppType == "Complex")
