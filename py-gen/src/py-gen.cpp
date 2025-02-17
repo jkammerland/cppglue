@@ -154,7 +154,7 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
 namespace {
 // Add at top of anonymous namespace
 struct TemplateProcessor {
-    static std::string replace(std::string templ, const std::string& placeholder, const std::string& value) {
+    static std::string replace(std::string templ, const std::string &placeholder, const std::string &value) {
         size_t pos;
         while ((pos = templ.find(placeholder)) != std::string::npos) {
             templ.replace(pos, placeholder.length(), value);
@@ -164,8 +164,8 @@ struct TemplateProcessor {
 };
 
 class FileWriter {
-public:
-    static void writeIfDifferent(const std::filesystem::path& path, const std::string& content) {
+  public:
+    static void writeIfDifferent(const std::filesystem::path &path, const std::string &content) {
         if (shouldWrite(path, content)) {
             std::ofstream out(path);
             if (!out) {
@@ -178,7 +178,7 @@ public:
         }
     }
 
-    static void ensureDirectory(const std::filesystem::path& path) {
+    static void ensureDirectory(const std::filesystem::path &path) {
         if (!std::filesystem::exists(path)) {
             if (!std::filesystem::create_directories(path)) {
                 throw std::runtime_error("Failed to create directory: " + path.string());
@@ -187,15 +187,16 @@ public:
         }
     }
 
-private:
-    static bool shouldWrite(const std::filesystem::path& path, const std::string& newContent) {
-        if (!std::filesystem::exists(path)) return true;
-        
+  private:
+    static bool shouldWrite(const std::filesystem::path &path, const std::string &newContent) {
+        if (!std::filesystem::exists(path))
+            return true;
+
         std::ifstream file(path);
-        if (!file) return true;
-        
-        std::string existingContent((std::istreambuf_iterator<char>(file)), 
-                                  std::istreambuf_iterator<char>());
+        if (!file)
+            return true;
+
+        std::string existingContent((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         return existingContent != newContent;
     }
 };
@@ -213,7 +214,6 @@ std::string readTemplate(const std::string &templateName) {
     return std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
 }
 
-
 std::string generateCMakeLists(const std::string &moduleName, const Headers &headers) {
     std::string templ = readTemplate("CMakeLists.txt.template");
 
@@ -230,6 +230,7 @@ std::string generateCMakeLists(const std::string &moduleName, const Headers &hea
     templ = TemplateProcessor::replace(templ, "{module_name}", moduleName);
 
     // Insert header files section after the project() line
+    size_t pos;
     if ((pos = templ.find("project(")) != std::string::npos) {
         pos = templ.find('\n', pos) + 1;
         templ.insert(pos, headerFiles.str());
@@ -239,18 +240,15 @@ std::string generateCMakeLists(const std::string &moduleName, const Headers &hea
 }
 
 std::string generateCPM(const std::string &version) {
-    return TemplateProcessor::replace(readTemplate("CPM.cmake.template"), 
-                                    "{version}", version);
+    return TemplateProcessor::replace(readTemplate("CPM.cmake.template"), "{version}", version);
 }
 
 std::string generateSetupPy(const std::string &moduleName) {
-    return TemplateProcessor::replace(readTemplate("setup.py.template"), 
-                                    "{module_name}", moduleName);
+    return TemplateProcessor::replace(readTemplate("setup.py.template"), "{module_name}", moduleName);
 }
 
 std::string generatePyprojectToml(const std::string &moduleName) {
-    return TemplateProcessor::replace(readTemplate("pyproject.toml.template"), 
-                                    "{module_name}", moduleName);
+    return TemplateProcessor::replace(readTemplate("pyproject.toml.template"), "{module_name}", moduleName);
 }
 
 std::string toPythonType(const std::string &cppType) {
@@ -280,20 +278,21 @@ std::string toPythonType(const std::string &cppType) {
         return "Optional[" + toPythonType(innerType) + "]";
     }
     if (cppType.starts_with("std::function<")) {
-        std::string signature = cppType.substr(14, cppType.length() - 15);
-        size_t returnPos = signature.find("(");
+        std::string signature  = cppType.substr(14, cppType.length() - 15);
+        size_t      returnPos  = signature.find("(");
         std::string returnType = signature.substr(0, returnPos);
-        std::string args = signature.substr(returnPos + 1, signature.length() - returnPos - 2);
-        
+        std::string args       = signature.substr(returnPos + 1, signature.length() - returnPos - 2);
+
         // Parse argument types
         std::vector<std::string> argTypes;
-        size_t start = 0;
-        int bracketCount = 0;
-        std::string currentArg;
-        
+        int                      bracketCount = 0;
+        std::string              currentArg;
+
         for (size_t i = 0; i < args.length(); ++i) {
-            if (args[i] == '<') bracketCount++;
-            else if (args[i] == '>') bracketCount--;
+            if (args[i] == '<')
+                bracketCount++;
+            else if (args[i] == '>')
+                bracketCount--;
             else if (args[i] == ',' && bracketCount == 0) {
                 if (!currentArg.empty()) {
                     argTypes.push_back(currentArg);
@@ -301,7 +300,7 @@ std::string toPythonType(const std::string &cppType) {
                 }
                 continue;
             }
-            
+
             if (!std::isspace(args[i])) {
                 currentArg += args[i];
             }
@@ -313,11 +312,12 @@ std::string toPythonType(const std::string &cppType) {
         // Build the Callable type
         std::string callableType = "Callable[[";
         for (size_t i = 0; i < argTypes.size(); ++i) {
-            if (i > 0) callableType += ", ";
+            if (i > 0)
+                callableType += ", ";
             callableType += toPythonType(argTypes[i]);
         }
         callableType += "], " + toPythonType(returnType) + "]";
-        
+
         return callableType;
     }
 
@@ -400,24 +400,19 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     // Generate bindings file
     std::stringstream bindingsContent;
     generateBindings(structs, functions, headers, moduleName, bindingsContent);
-    FileWriter::writeIfDifferent(outputDir / (moduleName + ".cpp"), 
-                                bindingsContent.str());
+    FileWriter::writeIfDifferent(outputDir / (moduleName + ".cpp"), bindingsContent.str());
 
     // Generate build files
-    FileWriter::writeIfDifferent(outputDir / "CMakeLists.txt", 
-                                generateCMakeLists(moduleName, headers));
-    FileWriter::writeIfDifferent(outputDir / "CPM.cmake", 
-                                generateCPM("0.40.5"));
+    FileWriter::writeIfDifferent(outputDir / "CMakeLists.txt", generateCMakeLists(moduleName, headers));
+    FileWriter::writeIfDifferent(outputDir / "CPM.cmake", generateCPM("0.40.5"));
 
     // Create package directory
     auto packageDir = outputDir / moduleName;
     FileWriter::ensureDirectory(packageDir);
 
     // Generate Python packaging files
-    FileWriter::writeIfDifferent(packageDir / "setup.py", 
-                                generateSetupPy(moduleName));
-    FileWriter::writeIfDifferent(packageDir / "pyproject.toml", 
-                                generatePyprojectToml(moduleName));
+    FileWriter::writeIfDifferent(packageDir / "setup.py", generateSetupPy(moduleName));
+    FileWriter::writeIfDifferent(packageDir / "pyproject.toml", generatePyprojectToml(moduleName));
 
     // Create and populate module directory
     auto moduleDir = packageDir / moduleName;
@@ -431,8 +426,7 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
     FileWriter::writeIfDifferent(moduleDir / "__init__.py", initContent.str());
 
     // Generate .pyi stub file
-    FileWriter::writeIfDifferent(moduleDir / (moduleName + ".pyi"), 
-                                generatePyi(structs, functions));
+    FileWriter::writeIfDifferent(moduleDir / (moduleName + ".pyi"), generatePyi(structs, functions));
 
     std::cout << "Generated files in: " << outputDir << '\n';
 }
