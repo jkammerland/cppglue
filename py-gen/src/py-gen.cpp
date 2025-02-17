@@ -288,11 +288,45 @@ std::string toPythonType(const std::string &cppType) {
         return "Optional[" + toPythonType(innerType) + "]";
     }
     if (cppType.starts_with("std::function<")) {
-        std::string signature  = cppType.substr(14, cppType.length() - 15);
-        size_t      returnPos  = signature.find("(");
+        std::string signature = cppType.substr(14, cppType.length() - 15);
+        size_t returnPos = signature.find("(");
         std::string returnType = signature.substr(0, returnPos);
-        std::string args       = signature.substr(returnPos + 1, signature.length() - returnPos - 2);
-        return "Callable[[], " + toPythonType(returnType) + "]";
+        std::string args = signature.substr(returnPos + 1, signature.length() - returnPos - 2);
+        
+        // Parse argument types
+        std::vector<std::string> argTypes;
+        size_t start = 0;
+        int bracketCount = 0;
+        std::string currentArg;
+        
+        for (size_t i = 0; i < args.length(); ++i) {
+            if (args[i] == '<') bracketCount++;
+            else if (args[i] == '>') bracketCount--;
+            else if (args[i] == ',' && bracketCount == 0) {
+                if (!currentArg.empty()) {
+                    argTypes.push_back(currentArg);
+                    currentArg.clear();
+                }
+                continue;
+            }
+            
+            if (!std::isspace(args[i])) {
+                currentArg += args[i];
+            }
+        }
+        if (!currentArg.empty()) {
+            argTypes.push_back(currentArg);
+        }
+
+        // Build the Callable type
+        std::string callableType = "Callable[[";
+        for (size_t i = 0; i < argTypes.size(); ++i) {
+            if (i > 0) callableType += ", ";
+            callableType += toPythonType(argTypes[i]);
+        }
+        callableType += "], " + toPythonType(returnType) + "]";
+        
+        return callableType;
     }
 
     // Handle scoped types (remove namespace qualifiers)
