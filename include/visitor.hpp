@@ -56,6 +56,8 @@ struct FunctionInfo {
     bool                              isMemberFunction{false};
     bool                              isPureVirtual{false};
     bool                              isStatic{false};
+    bool                              isDestructor{false};
+    bool                              isConstructor{false};
     std::optional<DeclarationName>    parent;
     std::vector<FieldDeclarationInfo> parameters;
 
@@ -147,12 +149,14 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         return true;
     }
 
-    bool VisitLambdaExpr(clang::LambdaExpr *lambda) {
-        auto [isNonUserCode, qName] = FilterQualifiedName(lambda->getCallOperator());
+    bool VisitVarDecl(clang::VarDecl *declaration) {
+        auto [isNonUserCode, qName] = FilterQualifiedName(declaration);
         if (isNonUserCode) {
             return true;
         }
-        // llvm::outs() << "Lambda: " << qName << " in VisitLambdaExpr, returning immidiately\n";
+
+        llvm::outs() << "Var: " << qName << " in VisitVarDecl, returning immidiately\n";
+
         return true;
     }
 
@@ -182,9 +186,46 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         return true;
     }
 
+    bool VisitCXXConversionDecl(clang::CXXConversionDecl *declaration) {
+        auto [isNonUserCode, qName] = FilterQualifiedName(declaration);
+        if (isNonUserCode) {
+            return true;
+        }
+
+        llvm::outs() << "Conversion: " << qName << " in VisitConversionDecl, returning immidiately\n";
+        return true;
+    }
+
+    bool VisitCXXDestructorDecl(clang::CXXDestructorDecl *declaration) {
+        auto [isNonUserCode, qName] = FilterQualifiedName(declaration);
+        if (isNonUserCode) {
+            return true;
+        }
+
+        llvm::outs() << "Destructor: " << qName << " in VisitDestructorDecl, returning immidiately\n";
+        return true;
+    }
+
+    bool VisitCXXConstructorDecl(clang::CXXConstructorDecl *declaration) {
+        auto [isNonUserCode, qName] = FilterQualifiedName(declaration);
+        if (isNonUserCode) {
+            return true;
+        }
+
+        llvm::outs() << "Constructor: " << qName << " in VisitConstructorDecl, returning immidiately\n";
+        return true;
+    }
+
     bool VisitFunctionDecl(clang::FunctionDecl *declaration) {
         auto [isNonUserCode, qName] = FilterQualifiedName(declaration);
         if (isNonUserCode) {
+            return true;
+        }
+
+        auto ConversionDecl  = llvm::isa<clang::CXXConversionDecl>(declaration);
+        auto DestructorDecl  = llvm::isa<clang::CXXDestructorDecl>(declaration);
+        auto ConstructorDecl = llvm::isa<clang::CXXConstructorDecl>(declaration);
+        if (ConversionDecl || DestructorDecl || ConstructorDecl) {
             return true;
         }
 
@@ -215,6 +256,7 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
 
             // Get the CXXRecordDecl if this is a class/struct type
             if (const CXXRecordDecl *recordDecl = paramType->getAsCXXRecordDecl()) {
+
                 // Check if this is a template specialization
                 if (const auto *templateDecl = dyn_cast<ClassTemplateSpecializationDecl>(recordDecl)) {
 
