@@ -23,7 +23,14 @@ inline void printInfo(const Structs &structs, const Functions &functions, const 
 
     for (const auto &funcInfo : functions) {
         llvm::outs() << "Function: " << fmt::format("{0} ({1})", funcInfo.name.plain, funcInfo.name.qualified) << "\n";
-        llvm::outs() << "    Return type: " << fmt::format("{0} ({1})", funcInfo.returnType.plain, funcInfo.returnType.qualified) << "\n";
+        if (funcInfo.isConstructor) {
+            llvm::outs() << "    Constructor\n";
+        } else if (funcInfo.isDestructor) {
+            llvm::outs() << "    Destructor\n";
+        } else {
+            llvm::outs() << "    Return type: " << fmt::format("{0} ({1})", funcInfo.returnType.plain, funcInfo.returnType.qualified)
+                         << "\n";
+        }
 
         if (!funcInfo.parameters.empty()) {
             llvm::outs() << "    Parameters:\n";

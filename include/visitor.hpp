@@ -2,6 +2,8 @@
 
 #include <clang/AST/ASTContext.h>
 #include <clang/AST/Decl.h>
+#include <clang/AST/DeclCXX.h>
+#include <clang/AST/DeclTemplate.h>
 #include <clang/AST/ExprCXX.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/Basic/SourceManager.h>
@@ -13,6 +15,7 @@
 #include <utility>
 
 struct DeclarationName {
+    bool                       isNamedDecl{false};
     std::string                plain;
     std::string                qualified;
     std::optional<std::string> namespace_;
@@ -203,6 +206,7 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         }
 
         llvm::outs() << "Destructor: " << qName << " in VisitDestructorDecl, returning immidiately\n";
+
         return true;
     }
 
@@ -213,6 +217,28 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         }
 
         llvm::outs() << "Constructor: " << qName << " in VisitConstructorDecl, returning immidiately\n";
+
+        FunctionInfo info;
+        info.name             = DeclarationName{.plain      = "",
+                                                .qualified  = declaration->getQualifiedNameAsString(),
+                                                .namespace_ = getNamespaceFromContext(declaration->getDeclContext())};
+        info.isConstructor    = true;
+        info.isMemberFunction = true;
+        info.parent           = createDeclarationName(declaration->getParent());
+        info.isPureVirtual    = declaration->isPureVirtual();
+        info.isStatic         = declaration->isStatic();
+
+        for (const auto *param : declaration->parameters()) {
+            FieldDeclarationInfo fieldInfo;
+            fieldInfo.type.plain     = param->getType().getAsString();
+            fieldInfo.type.qualified = param->getType().getCanonicalType().getAsString();
+            fieldInfo.name.plain     = param->getName();
+            fieldInfo.name.qualified = param->getQualifiedNameAsString();
+            info.parameters.emplace_back(fieldInfo);
+        }
+
+        functions_.push_back(std::move(info));
+
         return true;
     }
 
@@ -225,7 +251,8 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         auto ConversionDecl  = llvm::isa<clang::CXXConversionDecl>(declaration);
         auto DestructorDecl  = llvm::isa<clang::CXXDestructorDecl>(declaration);
         auto ConstructorDecl = llvm::isa<clang::CXXConstructorDecl>(declaration);
-        if (ConversionDecl || DestructorDecl || ConstructorDecl) {
+        auto OperatorDecl    = declaration->isOverloadedOperator();
+        if (ConversionDecl || DestructorDecl || ConstructorDecl || OperatorDecl) {
             return true;
         }
 
