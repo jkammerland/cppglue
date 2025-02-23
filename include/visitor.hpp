@@ -53,14 +53,18 @@ struct StructInfo {
 };
 
 struct FunctionInfo {
-    DeclarationName                   name;
-    DeclarationName                   returnType;
-    std::optional<std::string>        namespace_;
-    bool                              isMemberFunction{false};
-    bool                              isPureVirtual{false};
-    bool                              isStatic{false};
-    bool                              isDestructor{false};
-    bool                              isConstructor{false};
+    DeclarationName            name;
+    DeclarationName            returnType;
+    std::optional<std::string> namespace_;
+    bool                       isMemberFunction{false};
+    bool                       isPureVirtual{false};
+    bool                       isStatic{false};
+    bool                       isDestructor{false};
+    bool                       isConstructor{false};
+    bool                       isVirtual{false};
+    bool                       isDeleted{false};
+    bool                       isConst{false};
+
     std::optional<DeclarationName>    parent;
     std::vector<FieldDeclarationInfo> parameters;
 
@@ -227,6 +231,9 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         info.parent           = createDeclarationName(declaration->getParent());
         info.isPureVirtual    = declaration->isPureVirtual();
         info.isStatic         = declaration->isStatic();
+        info.isVirtual        = declaration->isVirtual();
+        info.isDeleted        = declaration->isDeleted();
+        info.isConst          = declaration->isConst();
 
         for (const auto *param : declaration->parameters()) {
             FieldDeclarationInfo fieldInfo;
