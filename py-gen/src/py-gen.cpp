@@ -75,35 +75,46 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
         for (const auto &funcInfo : functions) {
             if (funcInfo.parent.has_value() && funcInfo.parent->qualified == fullName) {
                 if (funcInfo.isConstructor) {
-                    // Handle constructor
-                    out << "        .def(py::init<";
+                    if (funcInfo.isDeleted) {
+                        // For deleted constructors, prevent their use
+                        out << "        .def(py::init([]() -> " << fullName << " { throw py::error_already_set(); })"
+                            << ", \"Constructor is deleted\")\n";
+                    } else {
+                        // Handle normal constructor
+                        out << "        .def(py::init<";
 
-                    // Add parameter types for constructor
-                    if (funcInfo.hasParameters()) {
-                        bool first = true;
-                        for (const auto &param : funcInfo.parameters) {
-                            if (!first)
-                                out << ", ";
-                            out << param.type.qualified;
-                            first = false;
+                        // Add parameter types for constructor
+                        if (funcInfo.hasParameters()) {
+                            bool first = true;
+                            for (const auto &param : funcInfo.parameters) {
+                                if (!first)
+                                    out << ", ";
+                                out << param.type.qualified;
+                                first = false;
+                            }
                         }
-                    }
 
-                    out << ">()";
+                        out << ">()";
 
-                    // Add parameter names if present
-                    if (funcInfo.hasParameters()) {
-                        out << ", ";
-                        bool first = true;
-                        for (const auto &param : funcInfo.parameters) {
-                            if (!first)
-                                out << ", ";
-                            out << "py::arg(\"" << param.name.plain << "\")";
-                            first = false;
+                        // Add parameter names if present
+                        if (funcInfo.hasParameters()) {
+                            out << ", ";
+                            bool first = true;
+                            for (const auto &param : funcInfo.parameters) {
+                                if (!first)
+                                    out << ", ";
+                                out << "py::arg(\"" << param.name.plain << "\")";
+                                first = false;
+                            }
                         }
-                    }
 
-                    out << ")\n";
+                        // Add const qualifier if needed
+                        if (funcInfo.isConst) {
+                            // out << ", py::is_method()";
+                        }
+
+                        out << ")\n";
+                    }
                 } else {
                     // Handle regular member function (existing code)
                     std::string params;
