@@ -71,40 +71,69 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
             out << fmt::format("        .def_readwrite(\"{0}\", &{1}::{0})\n", member.name.plain, fullName);
         }
 
-        // Add member functions
+        // Add constructors and member functions
         for (const auto &funcInfo : functions) {
             if (funcInfo.parent.has_value() && funcInfo.parent->qualified == fullName) {
-                // Build parameter documentation string
-                std::string params;
-                if (funcInfo.hasParameters()) {
-                    for (const auto &param : funcInfo.parameters) {
-                        if (!params.empty())
-                            params += ", ";
-                        params += fmt::format("{}: {}", param.name.plain, param.type.plain);
+                if (funcInfo.isConstructor) {
+                    // Handle constructor
+                    out << "        .def(py::init<";
+
+                    // Add parameter types for constructor
+                    if (funcInfo.hasParameters()) {
+                        bool first = true;
+                        for (const auto &param : funcInfo.parameters) {
+                            if (!first)
+                                out << ", ";
+                            out << param.type.qualified;
+                            first = false;
+                        }
                     }
-                }
 
-                // Add function with documentation
-                out << fmt::format("        .def(\"{}\", &{}::{}", funcInfo.name.plain, fullName, funcInfo.name.plain);
+                    out << ">()";
 
-                // Add parameter names if present
-                if (funcInfo.hasParameters()) {
-                    out << ", ";
-                    bool first = true;
-                    for (const auto &param : funcInfo.parameters) {
-                        if (!first)
-                            out << ", ";
-                        out << "py::arg(\"" << param.name.plain << "\")";
-                        first = false;
+                    // Add parameter names if present
+                    if (funcInfo.hasParameters()) {
+                        out << ", ";
+                        bool first = true;
+                        for (const auto &param : funcInfo.parameters) {
+                            if (!first)
+                                out << ", ";
+                            out << "py::arg(\"" << param.name.plain << "\")";
+                            first = false;
+                        }
                     }
+
+                    out << ")\n";
+                } else {
+                    // Handle regular member function (existing code)
+                    std::string params;
+                    if (funcInfo.hasParameters()) {
+                        for (const auto &param : funcInfo.parameters) {
+                            if (!params.empty())
+                                params += ", ";
+                            params += fmt::format("{}: {}", param.name.plain, param.type.plain);
+                        }
+                    }
+
+                    out << fmt::format("        .def(\"{}\", &{}::{}", funcInfo.name.plain, fullName, funcInfo.name.plain);
+
+                    if (funcInfo.hasParameters()) {
+                        out << ", ";
+                        bool first = true;
+                        for (const auto &param : funcInfo.parameters) {
+                            if (!first)
+                                out << ", ";
+                            out << "py::arg(\"" << param.name.plain << "\")";
+                            first = false;
+                        }
+                    }
+
+                    out << fmt::format(", \"{}({}){}\"{}", funcInfo.name.plain, params,
+                                       funcInfo.returnType.plain.empty() ? "" : " -> " + funcInfo.returnType.plain,
+                                       funcInfo.isPureVirtual ? ", py::is_method()" : "");
+
+                    out << ")\n";
                 }
-
-                // Add docstring with type information
-                out << fmt::format(", \"{}({}){}\"{}", funcInfo.name.plain, params,
-                                   funcInfo.returnType.plain.empty() ? "" : " -> " + funcInfo.returnType.plain,
-                                   funcInfo.isPureVirtual ? ", py::is_method()" : "");
-
-                out << ")\n";
             }
         }
         // Remove last newline and add semicolon
