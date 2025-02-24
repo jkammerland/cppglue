@@ -75,10 +75,9 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
         for (const auto &funcInfo : functions) {
             if (funcInfo.parent.has_value() && funcInfo.parent->qualified == fullName) {
                 if (funcInfo.isConstructor) {
-                    if (funcInfo.isDeleted) {
-                        // For deleted constructors, prevent their use
-                        out << "        .def(py::init([]() -> " << fullName << " { throw py::error_already_set(); })"
-                            << ", \"Constructor is deleted\")\n";
+                    if (funcInfo.isDeleted || funcInfo.isMoveConstructor || funcInfo.isCopyConstructor || funcInfo.isDefaultConstructor) {
+                        // For deleted constructors, prevent their use, TODO:
+                        out << "// TODO: Handle deleted,copy,move and default constructors\n";
                     } else {
                         // Handle normal constructor
                         out << "        .def(py::init<";
@@ -139,9 +138,8 @@ void generateBindings(const Structs &structs, const Functions &functions, const 
                         }
                     }
 
-                    out << fmt::format(", \"{}({}){}\"{}", funcInfo.name.plain, params,
-                                       funcInfo.returnType.plain.empty() ? "" : " -> " + funcInfo.returnType.plain,
-                                       funcInfo.isPureVirtual ? ", py::is_method()" : "");
+                    out << fmt::format(", \"{}({}){}\"", funcInfo.name.plain, params,
+                                       funcInfo.returnType.plain.empty() ? "" : " -> " + funcInfo.returnType.plain);
 
                     out << ")\n";
                 }

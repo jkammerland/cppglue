@@ -61,6 +61,9 @@ struct FunctionInfo {
     bool                       isStatic{false};
     bool                       isDestructor{false};
     bool                       isConstructor{false};
+    bool                       isCopyConstructor{false};
+    bool                       isMoveConstructor{false};
+    bool                       isDefaultConstructor{false};
     bool                       isVirtual{false};
     bool                       isDeleted{false};
     bool                       isConst{false};
@@ -223,17 +226,20 @@ class Visitor : public clang::RecursiveASTVisitor<Visitor> {
         llvm::outs() << "Constructor: " << qName << " in VisitConstructorDecl, returning immidiately\n";
 
         FunctionInfo info;
-        info.name             = DeclarationName{.plain      = "",
-                                                .qualified  = declaration->getQualifiedNameAsString(),
-                                                .namespace_ = getNamespaceFromContext(declaration->getDeclContext())};
-        info.isConstructor    = true;
-        info.isMemberFunction = true;
-        info.parent           = createDeclarationName(declaration->getParent());
-        info.isPureVirtual    = declaration->isPureVirtual();
-        info.isStatic         = declaration->isStatic();
-        info.isVirtual        = declaration->isVirtual();
-        info.isDeleted        = declaration->isDeleted();
-        info.isConst          = declaration->isConst();
+        info.name                 = DeclarationName{.plain      = "",
+                                                    .qualified  = declaration->getQualifiedNameAsString(),
+                                                    .namespace_ = getNamespaceFromContext(declaration->getDeclContext())};
+        info.isConstructor        = true;
+        info.isCopyConstructor    = declaration->isCopyConstructor();
+        info.isMoveConstructor    = declaration->isMoveConstructor();
+        info.isDefaultConstructor = declaration->isDefaultConstructor();
+        info.isMemberFunction     = true;
+        info.parent               = createDeclarationName(declaration->getParent());
+        info.isPureVirtual        = declaration->isPureVirtual();
+        info.isStatic             = declaration->isStatic();
+        info.isVirtual            = declaration->isVirtual();
+        info.isDeleted            = declaration->isDeleted();
+        info.isConst              = declaration->isConst();
 
         for (const auto *param : declaration->parameters()) {
             FieldDeclarationInfo fieldInfo;
