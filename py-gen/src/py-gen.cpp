@@ -376,8 +376,8 @@ std::string generatePyi(const Structs &structs, const Functions &functions) {
 
     // Add common imports
     out << "from typing import Optional, Callable, List, Dict, Set, Tuple, Union, overload\n"
-        << "from typing import TypeVar, Generic, Complex\n" // Added Complex import
-        << "from enum import Enum\n"                        // Added Enum import
+        << "from typing import TypeVar, Generic, Complex\n"
+        << "from enum import Enum\n"
         << "import numpy.typing as npt\n"
         << "import numpy as np\n\n";
 
