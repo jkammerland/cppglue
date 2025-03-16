@@ -35,10 +35,19 @@ RUN \
     ninja && ninja install
 
 RUN \
+    dnf update -y && dnf install -y \
+    dbus-devel \
+    patch \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf/*
+
+RUN \
+    git clone https://github.com/COVESA/capicxx-dbus-runtime.git && \
     DBUS_VERSION=1.14.10 && \
     wget https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && \
     tar -xf dbus-${DBUS_VERSION}.tar.xz && \
     cd dbus-${DBUS_VERSION} && \
+    for p in ../capicxx-dbus-runtime/src/dbus-patches/*.patch; do patch -p1 < $p; done && \
     ./configure --prefix=/usr/local && \
     make -C dbus && \
     make -C dbus install && \
@@ -47,18 +56,10 @@ RUN \
     rm -rf dbus-${DBUS_VERSION}* && \
     echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> /root/.bashrc
 
-# RUN \
-#     dnf update -y && dnf install -y \
-#     dbus-devel \
-#     && dnf clean all \
-#     && rm -rf /var/cache/dnf/*
-
-# RUN \
-#     git clone https://github.com/COVESA/capicxx-dbus-runtime.git && \
-#     cd capicxx-dbus-runtime && \
-#     mkdir build && cd build && \
-#     cmake .. -DCMAKE_PREFIX_PATH="/usr/local" -DUSE_INSTALLED_COMMONAPI=ON -DCMAKE_BUILD_TYPE=Release -G Ninja && \
-#     ninja && ninja install
+RUN cd capicxx-dbus-runtime && \
+    mkdir build && cd build && \
+    cmake .. -DCMAKE_PREFIX_PATH="/usr/local" -DUSE_INSTALLED_COMMONAPI=ON -DCMAKE_BUILD_TYPE=Release -G Ninja && \
+    ninja && ninja install
 
 # Default command
 CMD ["/bin/bash"]
